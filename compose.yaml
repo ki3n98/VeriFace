@@ -44,7 +44,7 @@ services:
             - node_modules/
             - .next/
     environment:
-      - SERVER_URL=
+      - SERVER_URL=http://server:80
     networks:
       - app-network
     depends_on:
