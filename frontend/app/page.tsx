@@ -1,6 +1,20 @@
 import Image from "next/image";
 
-export default function Home() {
+export default async function Home() {
+
+    const res = await fetch("http://server:80/", {
+    // Choose one of these:
+    // next: { revalidate: 60 },        // cache & revalidate every 60s
+    cache: "no-store",                  // or: always fresh, no cache
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to fetch users");
+    }
+
+    const from_api = await res.json();
+    console.log(from_api)
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
       <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
