@@ -17,12 +17,19 @@ def get_current_user(
         status_code=status.HTTP_401_UNAUTHORIZED, 
         detail="Invalid Authentication Credientials (token)"
     )
+    print(authorization)
 
     if not authorization:
-        raise auth_exception
+        raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, 
+        detail="No Token"
+    )
     
     if not authorization.startswith(AUTH_PREFIX):
-        raise auth_exception
+        raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, 
+        detail="Missing prefix"
+    )
     
     payload = AuthHandler.decode_jwt(token=authorization[len(AUTH_PREFIX):])
 
