@@ -21,7 +21,7 @@ def get_current_user(
     if not authorization:
         raise auth_exception
     
-    if not authorization.startwith(AUTH_PREFIX):
+    if not authorization.startswith(AUTH_PREFIX):
         raise auth_exception
     
     payload = AuthHandler.decode_jwt(token=authorization[len(AUTH_PREFIX):])
