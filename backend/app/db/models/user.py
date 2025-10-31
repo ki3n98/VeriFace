@@ -8,4 +8,4 @@ class User(Base):
     last_name = Column(String(100))
     email = Column(String(100), unique=True, nullable=False)
     password = Column(String(250))
-    embedding = Column(ARRAY(Float))
+    embedding = Column(ARRAY(Float), nullable=True)

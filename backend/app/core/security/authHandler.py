@@ -1,10 +1,11 @@
 import jwt
-from decouple import config
-import time
+from dotenv import load_dotenv
+import time, os
 
-JWT_SECRET = config("JWT_SECRET")
-JWT_ALGORITHM = config("JWT_ALGORITHM")
+load_dotenv()
 
+JWT_SECRET = os.environ.get("JWT_SECRET")
+JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM")
 
 class AuthHandler(object):
 
@@ -12,10 +13,11 @@ class AuthHandler(object):
     def sign_jwt(user_id: int) -> str:
         payload = {
             "user_id": user_id,
-            "expires": time.time() + 900
+            "expires": time.time() + 9000
         }
 
         token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+        return token
 
 
     @staticmethod

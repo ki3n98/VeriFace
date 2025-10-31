@@ -28,7 +28,7 @@ class UserInUpdate(BaseModel):
 
 class UserInLogin(BaseModel):
     email: EmailStr
-    passworld : str
+    password : str
 
 
 class UserWithToken(BaseModel):
