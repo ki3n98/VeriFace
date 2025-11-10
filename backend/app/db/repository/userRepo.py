@@ -28,3 +28,5 @@ class UserRepository(BaseRepository):
     def get_user_by_id(self, id) -> User:
         user = self.session.query(User).filter_by(id=id).first()
         return user
+    
+

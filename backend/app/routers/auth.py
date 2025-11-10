@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form
 from app.db.schema.user import UserInCreate, UserInLogin, UserWithToken, UserOutput
 from app.core.database import get_db
-from sqlalchemy.orm import Session
 from app.service.userService import UserService
 from app.util.embeddings import upload_img_to_embedding
+from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
+from pydantic import ValidationError
+
 
 import numpy as np
 authRouter = APIRouter()
@@ -17,21 +19,31 @@ def login(loginDetails: UserInLogin, session: Session = Depends(get_db)):
         raise error
 
 
+# Dependency: take the form field "signUpDetails" (a JSON string) ➜ UserInCreate
+async def parse_sign_up_details(signUpDetails: str = Form(...)) -> UserInCreate:
+    try:
+        return UserInCreate.model_validate_json(signUpDetails)
+    except ValidationError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.errors())
+
+
+
 @authRouter.post("/signup", status_code=201, response_model=UserOutput)
 async def signup(
-        signUpDetails: str = Form(...), 
+        signUpDetails: UserInCreate = Depends(parse_sign_up_details), 
         upload_image: UploadFile = File(...), 
         session: Session = Depends(get_db)
         ):
     try:
-        details = UserInCreate.model_validate_json(signUpDetails)
         embedding = await upload_img_to_embedding(upload_image)
-        details.embedding = [float(x) for x in embedding]
+        signUpDetails.embedding = [float(x) for x in embedding]
         print(embedding)
         return UserService(session=session).signup(
-            user_details=details
+            user_details=signUpDetails
             )
 
     except Exception as error:
         print(error)
         raise error
+    
+
