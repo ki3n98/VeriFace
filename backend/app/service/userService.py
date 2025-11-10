@@ -4,6 +4,7 @@ from app.core.security.hashHelper import HashHelper
 from app.core.security.authHandler import AuthHandler
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+import numpy as np
 
 class UserService:
     def __init__(self, session: Session):

@@ -1,7 +1,6 @@
 from pydantic import EmailStr, BaseModel
 from typing import Union, List
 
-
 class UserInCreate(BaseModel):
     first_name: Union[str, None] = None
     last_name: Union[str, None] = None
