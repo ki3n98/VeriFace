@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
 from pydantic import ValidationError
 
+from app.db.repository.userRepo import UserRepository
 
 import numpy as np
 authRouter = APIRouter()
@@ -13,6 +14,10 @@ authRouter = APIRouter()
 @authRouter.post("/login", status_code=200, response_model=UserWithToken)
 def login(loginDetails: UserInLogin, session: Session = Depends(get_db)):
     try:
+        user_repo = UserRepository(session=session)
+        user = user_repo.get_user_by_email(loginDetails.email)
+
+        print(f"User: {user.first_name} {user.last_name}, {user.email} is logged in.")
         return UserService(session=session).login(login_details=loginDetails)
     except Exception as error:
         print(error)
