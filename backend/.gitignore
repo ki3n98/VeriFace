@@ -1,5 +1,6 @@
 /.venv
 .env
+app_syn.py
 venv
 test.ipynb
 __pycache__
