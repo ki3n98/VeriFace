@@ -28,7 +28,7 @@ async def signup(
         )
 
     INSERT_QUERY = f'''
-        INSERT INTO users(username,password,is_active,email, image_embedding)
+        INSERT INTO users(username,password,is_active,email, embedding)
         VALUES (%s, %s, %s, %s, %s)
     '''
     
