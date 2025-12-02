@@ -4,10 +4,10 @@ import mysql.connector
 
 
 app = FastAPI()
-DB_host = "sql3.freesqldatabase.com"
-DB_user = "sql3809121"
-DB_pw = "WmVFXqaLCZ"
-DB_name = "sql3809121"
+DB_host = "sql5.freesqldatabase.com"
+DB_user = "sql5810359"
+DB_pw = "SKuiRlIjtu"
+DB_name = "sql5810359"
 
 connection = mysql.connector.connect(
     host=DB_host, user=DB_user, password=DB_pw, database=DB_name, connect_timeout=10
