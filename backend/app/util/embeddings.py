@@ -13,7 +13,6 @@ model = ModelService()
 ALLOWED = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_SIZE = 5 * 1024 * 1024  # 5 MB
 
-
 def _bytes_to_rgb_array(data: bytes) -> np.ndarray:
     try:
         with Image.open(io.BytesIO(data)) as img:

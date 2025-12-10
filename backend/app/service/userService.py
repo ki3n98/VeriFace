@@ -4,6 +4,8 @@ from app.core.security.hashHelper import HashHelper
 from app.core.security.authHandler import AuthHandler
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+from typing import Any, Dict
+
 import numpy as np
 
 class UserService:
@@ -40,3 +42,28 @@ class UserService:
         if user:
             return user
         raise HTTPException(status_code=400, detail="User Id does not exist.")
+    
+
+    def update_user_by_id(self, user_id: int, updates: Dict[str, Any]) -> UserOutput:
+        # Make sure the user exists
+        user = self.__userRepository.get_user_by_id(id=user_id)
+        if not user:
+            raise HTTPException(status_code=400, detail="User Id does not exist.")
+
+        # Special handling for password
+        if "password" in updates and updates["password"] is not None:
+            updates["password"] = HashHelper.get_password_hash(
+                plain_pw=updates["password"]
+            )
+
+        if "embedding" in updates and updates["embedding"] is not None:
+            # Ensure it's a list of floats 
+            emb = updates["embedding"]
+            updates["embedding"] = [float(x) for x in emb]
+
+        updated_user = self.__userRepository.update_user_by_id(
+            id=user_id,
+            updates=updates
+        )
+
+        return updated_user
