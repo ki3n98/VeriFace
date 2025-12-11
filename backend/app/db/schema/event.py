@@ -37,3 +37,8 @@ class EventOutput(BaseModel):
     start_date: Union[datetime, None] = None
     end_date: Union[datetime, None] = None
     location: Union[str, None] = None
+
+
+class EventToRemove(BaseModel):
+    user_id: Union[int, None] = None
+    event_id: int

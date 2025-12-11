@@ -6,6 +6,7 @@ BASE_URL = "http://127.0.0.1"
 LOGIN_URL = f"{BASE_URL}/auth/login"
 UPLOAD_URL = f"{BASE_URL}/protected/uploadPicture"
 CREATE_EVENT_URL = f"{BASE_URL}/protected/event/createEvent"
+REMOVE_EVENT_URL = f"{BASE_URL}/protected/event/removeEvent"
 
 EMAIL = "test2@example.com"
 PASSWORD = "123"
@@ -71,14 +72,32 @@ def create_event(token:str):
         "end_date": end.isoformat(),
         "location": "CSULB",
     }
-    
+
     resp = requests.post(CREATE_EVENT_URL, json=event_details, headers=headers)
     print("Create event satus:", resp.status_code)
+    print("Response:", resp.text)
+    resp.raise_for_status()
+
+    
+def remove_event(token:str, event_id:int):
+    headers = {
+        "accept": "application/json",
+        "Authorization": f"Bearer {token}",
+    }
+
+    payload = { 
+        "event_id": event_id
+    }
+
+    resp = requests.post(REMOVE_EVENT_URL, json=payload, headers=headers)
+    print("Remove event satus:", resp.status_code)
     print("Response:", resp.text)
     resp.raise_for_status()
 
 
 if __name__ == "__main__":
     token = login_and_get_token()
-    create_event(token)
     # upload_picture(token)
+    # event = create_event(token)
+    remove_event(token, 3)
+    print()

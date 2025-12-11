@@ -1,5 +1,5 @@
 from app.db.repository.eventRepo import EventRepository
-from app.db.schema.event import EventInCreate, EventInUpdate, EventOutput
+from app.db.schema.event import EventInCreate, EventInUpdate, EventOutput, EventToRemove
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from typing import Any, Dict
@@ -34,8 +34,11 @@ class EventService:
         raise HTTPException(status_code=400, detail="Event id does not exist.")
     
 
-    def remove_event(self, user_id:int, event_id:int) ->str:
-        result = self.__eventRepository.delete_event_by_id(user_id, event_id)
+    def remove_event(self, event_to_remove: EventToRemove) ->str:
+        result = self.__eventRepository.delete_event_by_id(
+            user_id = event_to_remove.user_id, 
+            event_id = event_to_remove.event_id
+            )
 
         if result:
             return "User {user_id} removed {event_id}."

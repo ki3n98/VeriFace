@@ -39,14 +39,14 @@ class EventRepository(BaseRepository):
         return event
 
 
-    def delete_event_by_id(self, id: int, current_user_id: int) -> bool:
+    def delete_event_by_id(self, user_id: int, event_id: int) -> bool:
         """Delete event by id only if current_user_id match with event's user_id. """
-        event = self.get_event_by_id(id)
+        event = self.get_event_by_id(event_id)
         if not event:
             return True
 
         #check if user has permission to delete event
-        if getattr(event, "user_id", None) != current_user_id:
+        if getattr(event, "user_id", None) != user_id:
             return False
 
         self.session.delete(event)
