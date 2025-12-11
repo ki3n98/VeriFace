@@ -1,15 +1,15 @@
-from app.db.schema.user import UserInCreate, UserInLogin, UserWithToken, UserOutput
+from app.db.schema.user import UserOutput
 from app.core.database import get_db
 from app.service.userService import UserService
 from app.util.embeddings import upload_img_to_embedding
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
-from pydantic import ValidationError
+from fastapi import APIRouter, Depends, UploadFile, File
 from app.util.protectRoute import get_current_user
-
-from app.db.repository.userRepo import UserRepository
+from app.routers.protected.event.event import eventRouter
 from sqlalchemy.orm import Session
 
 protectedRouter = APIRouter()
+protectedRouter.include_router(router=eventRouter, tags=["event"], prefix="/event")
+
 
 @protectedRouter.get("/testToken")
 def read_protected(user: UserOutput = Depends(get_current_user)):
@@ -24,10 +24,13 @@ async def upload_picture(
 ):
     embedding = await upload_img_to_embedding(upload_image)
     embedding = [float(x) for x in embedding]
-    # print(embedding)
-    updated_user = UserService(session=session).update_user_by_id(
-        user_id=user.id,
-        updates={"embedding": embedding}
-    )
+    
+    try: 
+        return UserService(session=session).update_user_by_id(
+            user_id=user.id,
+            updates={"embedding": embedding}
+        )
 
-    return updated_user
+    except Exception as error:
+        print(error)
+        raise error

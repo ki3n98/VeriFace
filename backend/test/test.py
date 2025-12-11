@@ -1,9 +1,11 @@
 import requests
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 
 BASE_URL = "http://127.0.0.1"
 LOGIN_URL = f"{BASE_URL}/auth/login"
 UPLOAD_URL = f"{BASE_URL}/protected/uploadPicture"
+CREATE_EVENT_URL = f"{BASE_URL}/protected/event/createEvent"
 
 EMAIL = "test2@example.com"
 PASSWORD = "123"
@@ -37,7 +39,6 @@ def upload_picture(token: str):
     headers = {
         "accept": "application/json",
         "Authorization": f"Bearer {token}",
-        # do NOT manually set Content-Type here; requests will handle multipart
     }
 
     files = {
@@ -55,6 +56,29 @@ def upload_picture(token: str):
     resp.raise_for_status()
 
 
+def create_event(token:str):
+    headers = {
+        "accept": "application/json",
+        "Authorization": f"Bearer {token}",
+    }
+
+    start = datetime.now(timezone.utc)
+    end = start + timedelta(hours=1)
+
+    event_details = {
+        "event_name": "CECS491A-02",
+        "start_date": start.isoformat(),  # -> '2025-12-11T18:23:45.123456+00:00'
+        "end_date": end.isoformat(),
+        "location": "CSULB",
+    }
+    
+    resp = requests.post(CREATE_EVENT_URL, json=event_details, headers=headers)
+    print("Create event satus:", resp.status_code)
+    print("Response:", resp.text)
+    resp.raise_for_status()
+
+
 if __name__ == "__main__":
     token = login_and_get_token()
-    upload_picture(token)
+    create_event(token)
+    # upload_picture(token)

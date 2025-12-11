@@ -17,7 +17,6 @@ def get_current_user(
         status_code=status.HTTP_401_UNAUTHORIZED, 
         detail="Invalid Authentication Credientials (token)"
     )
-    print(authorization)
 
     if not authorization:
         raise HTTPException(

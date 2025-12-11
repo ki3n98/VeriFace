@@ -4,7 +4,7 @@ from app.db.schema.user import UserInCreate
 from typing import Any, Dict
 
 class UserRepository(BaseRepository):
-    def create_user(self, user_data:UserInCreate):
+    def create_user(self, user_data:UserInCreate) -> User:
         newUser = User(**user_data.model_dump(exclude_none=True))
 
         self.session.add(instance=newUser)
@@ -28,7 +28,7 @@ class UserRepository(BaseRepository):
         user = self.session.query(User).filter_by(id=id).first()
         return user
     
-    def update_user_by_id(self, id: int, updates: Dict[str, Any]):
+    def update_user_by_id(self, id: int, updates: Dict[str, Any]) -> User:
         user = self.get_user_by_id(id=id) 
         if not user:
             return None

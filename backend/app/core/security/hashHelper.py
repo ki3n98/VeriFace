@@ -13,7 +13,3 @@ class HashHelper(object):
             plain_pw.encode("utf-8"),
             gensalt()
         ).decode("utf-8")   
-    
-
-hashed_pw = HashHelper().get_password_hash("123")
-print(hashed_pw)

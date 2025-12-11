@@ -28,12 +28,9 @@ def login(loginDetails: UserInLogin, session: Session = Depends(get_db)):
 @authRouter.post("/signup", status_code=201, response_model=UserOutput)
 async def signup(
         signUpDetails: UserInCreate = UserInCreate, 
-        # upload_image: UploadFile = File(...), 
         session: Session = Depends(get_db)
         ):
     try:
-        # embedding = await upload_img_to_embedding(upload_image)
-        # signUpDetails.embedding = [float(x) for x in embedding]
         return UserService(session=session).signup(
             user_details=signUpDetails
             )

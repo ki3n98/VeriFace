@@ -50,7 +50,7 @@ class UserService:
         if not user:
             raise HTTPException(status_code=400, detail="User Id does not exist.")
 
-        # Special handling for password
+        # update password
         if "password" in updates and updates["password"] is not None:
             updates["password"] = HashHelper.get_password_hash(
                 plain_pw=updates["password"]
