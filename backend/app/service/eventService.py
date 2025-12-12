@@ -41,7 +41,7 @@ class EventService:
             )
 
         if result:
-            return "User {user_id} removed {event_id}."
+            return f"User {event_to_remove.user_id} removed {event_to_remove.event_id}."
         
         raise HTTPException(
             status_code=403, 

@@ -7,6 +7,9 @@ LOGIN_URL = f"{BASE_URL}/auth/login"
 UPLOAD_URL = f"{BASE_URL}/protected/uploadPicture"
 CREATE_EVENT_URL = f"{BASE_URL}/protected/event/createEvent"
 REMOVE_EVENT_URL = f"{BASE_URL}/protected/event/removeEvent"
+ADD_RELATIONSHIP_UR = f"{BASE_URL}/protected/event/addEventUserRelationship"
+REMOVE_RELATIONSHIP_UR = f"{BASE_URL}/protected/event/removeEventUserRelationship"
+
 
 EMAIL = "test2@example.com"
 PASSWORD = "123"
@@ -77,6 +80,7 @@ def create_event(token:str):
     print("Create event satus:", resp.status_code)
     print("Response:", resp.text)
     resp.raise_for_status()
+    return resp.json()
 
     
 def remove_event(token:str, event_id:int):
@@ -94,10 +98,45 @@ def remove_event(token:str, event_id:int):
     print("Response:", resp.text)
     resp.raise_for_status()
 
+def add_relationship(token:str, event_id):
+    headers = {
+        "accept": "application/json",
+        "Authorization": f"Bearer {token}",
+    }
+
+    payload = {
+        "event_id": event_id,
+        "user_id": 4
+    }
+
+    resp = requests.post(ADD_RELATIONSHIP_UR, json=payload, headers=headers)
+    print("add event user relationship satus:", resp.status_code)
+    print("Response:", resp.text)
+    resp.raise_for_status()
+
+def remove_relationship(token:str, event_id):
+    headers = {
+        "accept": "application/json",
+        "Authorization": f"Bearer {token}",
+    }
+
+    payload = {
+        "event_id": 7,
+        "user_id": 4
+    }
+
+    resp = requests.post(REMOVE_RELATIONSHIP_UR, json=payload, headers=headers)
+    print("remove event user relationship satus:", resp.status_code)
+    print("Response:", resp.text)
+    resp.raise_for_status()
+
+
 
 if __name__ == "__main__":
     token = login_and_get_token()
     # upload_picture(token)
     # event = create_event(token)
-    remove_event(token, 3)
-    print()
+    # print(event)
+    # remove_event(token, event["id"])
+    remove_relationship(token, event_id=7)
+

@@ -15,7 +15,9 @@ class EventRepository(BaseRepository):
     
 
     def get_event_by_id(self, id:int) -> Event:
-        event = self.session.query(Event).filter_by(id=id).first()
+        # event = self.session.query(Event).filter_by(id=id).first()
+        event = self.session.get(Event, id)
+
         return event
     
     

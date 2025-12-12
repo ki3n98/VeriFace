@@ -6,8 +6,6 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from typing import Any, Dict
 
-import numpy as np
-
 class UserService:
     def __init__(self, session: Session):
         self.__userRepository = UserRepository(session=session)

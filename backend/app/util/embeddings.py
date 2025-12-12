@@ -4,7 +4,7 @@ from PIL import Image, UnidentifiedImageError
 import numpy as np
 import io
 
-from fastapi import FastAPI, Depends, UploadFile, File, HTTPException
+from fastapi import UploadFile, File, HTTPException
 
 
 model = ModelService()

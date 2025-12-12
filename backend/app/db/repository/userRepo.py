@@ -25,7 +25,8 @@ class UserRepository(BaseRepository):
     
 
     def get_user_by_id(self, id) -> User:
-        user = self.session.query(User).filter_by(id=id).first()
+        # user = self.session.query(User).filter_by(id=id).first()
+        user = self.session.get(User, id)
         return user
     
     def update_user_by_id(self, id: int, updates: Dict[str, Any]) -> User:
