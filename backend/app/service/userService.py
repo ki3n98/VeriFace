@@ -42,6 +42,13 @@ class UserService:
         raise HTTPException(status_code=400, detail="User Id does not exist.")
     
 
+    def get_user_by_email(self, user_emai:str) -> UserOutput:
+        user = self.__userRepository.get_user_by_email(email=user_emai)
+        if user:
+            return user
+        raise HTTPException(status_code=400, detail="Incorrect email or password. ")
+    
+
     def update_user_by_id(self, user_id: int, updates: Dict[str, Any]) -> UserOutput:
         # Make sure the user exists
         user = self.__userRepository.get_user_by_id(id=user_id)
