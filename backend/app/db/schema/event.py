@@ -42,3 +42,7 @@ class EventOutput(BaseModel):
 class EventToRemove(BaseModel):
     user_id: Union[int, None] = None
     event_id: int
+
+
+class EventId(BaseModel):
+    id:int
