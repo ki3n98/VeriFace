@@ -4,7 +4,7 @@ from PIL import Image, UnidentifiedImageError
 import numpy as np
 import io
 
-from fastapi import FastAPI, Depends, UploadFile, File, HTTPException
+from fastapi import UploadFile, File, HTTPException
 
 
 model = ModelService()
@@ -12,7 +12,6 @@ model = ModelService()
 
 ALLOWED = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_SIZE = 5 * 1024 * 1024  # 5 MB
-
 
 def _bytes_to_rgb_array(data: bytes) -> np.ndarray:
     try:

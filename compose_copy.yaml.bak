@@ -15,8 +15,13 @@ services:
           target: /app
           ignore:
             - __pycache__/
+    environment:
+      - DB_URL=postgresql://postgres:postgres@db:5432/veriface_db
     networks:
       - app-network
+    depends_on:
+      db:
+        condition: service_started  
 
   web:
     build:
@@ -46,6 +51,20 @@ services:
       server:
         condition: service_started
 
+  db:
+    image: postgres
+    environment:
+      POSTGRES_DB: veriface_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    networks:
+      - app-network
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql
 
 networks:
   app-network:
+volumes:
+  db_data:

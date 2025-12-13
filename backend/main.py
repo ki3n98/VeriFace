@@ -1,11 +1,8 @@
-from fastapi import FastAPI, Depends, UploadFile, File, HTTPException
+from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from app.util.init_db import create_table
 from app.routers.auth import authRouter
-from app.util.protectRoute import get_current_user
-from app.db.schema.user import UserOutput
-from app.db.schema.checkIn import TestPredictIn
-
+from app.routers.protected.protected import protectedRouter
 
 
 @asynccontextmanager
@@ -17,17 +14,13 @@ async def lifespan(app:FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# /auth/login
-# /auth/signup
 app.include_router(router=authRouter, tags=["auth"], prefix="/auth")
+app.include_router(router=protectedRouter, tags=["protected"], prefix="/protected")
 
 
 @app.get("/")
 def read_root():
     return {"message": "Hello from Docker!"}
 
-@app.get("/protected")
-def read_protected(user: UserOutput = Depends(get_current_user)):
-    return {"data": user}
 
 
