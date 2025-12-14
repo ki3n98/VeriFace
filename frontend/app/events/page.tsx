@@ -1,0 +1,181 @@
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Plus, X, Image as ImageIcon } from "lucide-react"
+import { CreateEventModal } from "./components/CreateEventModal"
+import { useEvents } from "@/lib/hooks/useEvents"
+import { apiClient } from "@/lib/api"
+
+export default function EventsPage() {
+  const router = useRouter()
+  const { events, loading, error, refetch } = useEvents()
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+
+  const handleEventClick = (eventId: number) => {
+    // Navigate to dashboard with event ID (can be used later for filtering)
+    router.push(`/dashboard?eventId=${eventId}`)
+  }
+
+  const handleCreateEvent = async (eventData: {
+    name: string
+    location?: string
+    participantCount?: number
+    description?: string
+  }) => {
+    try {
+      const response = await apiClient.post('/protected/event/createEvent', {
+        event_name: eventData.name,
+        location: eventData.location,
+        start_date: null, // You can add date pickers later
+        end_date: null,
+      })
+
+      if (response.error) {
+        alert(`Failed to create event: ${response.error}`)
+        return
+      }
+
+      // Refresh events list (if this fails, still close modal since event was created)
+      try {
+        await refetch()
+      } catch (refetchError) {
+        console.error('Error refreshing events list:', refetchError)
+        // Event was created successfully, so we still close the modal
+        // User can manually refresh the page to see the new event
+      }
+      setIsCreateModalOpen(false)
+    } catch (error) {
+      console.error('Error creating event:', error)
+      alert('Failed to create event. Please try again.')
+    }
+  }
+
+  const handleDeleteEvent = async (eventId: number, e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent triggering the card click
+    
+    if (!confirm("Are you sure you want to delete this event?")) {
+      return
+    }
+
+    try {
+      const response = await apiClient.post('/protected/event/removeEvent', {
+        event_id: eventId,
+      })
+
+      if (response.error) {
+        alert(`Failed to delete event: ${response.error}`)
+        return
+      }
+
+      // Refresh events list
+      await refetch()
+    } catch (error) {
+      console.error('Error deleting event:', error)
+      alert('Failed to delete event. Please try again.')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-xl text-gray-600">Loading events...</div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-purple-600 text-white shadow-md">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="VeriFace Logo" className="h-10 w-auto" />
+            <h1 className="text-2xl font-bold">VeriFace</h1>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-6 py-8">
+        <div className="mb-8">
+          <h2 className="text-4xl font-bold text-gray-900 mb-2">Select Event</h2>
+          <p className="text-gray-600">
+            After logging in, users see all classes or events they belong to. Users can select an
+            existing event or create a new one.
+          </p>
+        </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+            Error loading events: {error}
+          </div>
+        )}
+
+        {/* Events Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Event Cards */}
+          {events.map((event) => (
+            <Card
+              key={event.id}
+              className="cursor-pointer hover:shadow-lg transition-shadow relative group"
+              onClick={() => handleEventClick(event.id)}
+            >
+              <CardContent className="p-6">
+                {/* Delete button - appears on hover */}
+                <button
+                  onClick={(e) => handleDeleteEvent(event.id, e)}
+                  className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full bg-red-500 hover:bg-red-600 text-white"
+                  aria-label="Delete event"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+
+                {/* Event Image Placeholder */}
+                <div className="w-full h-48 bg-gray-200 rounded-lg mb-4 flex items-center justify-center">
+                  <ImageIcon className="h-16 w-16 text-gray-400" />
+                </div>
+
+                {/* Event Info */}
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{event.event_name}</h3>
+                {event.location && (
+                  <p className="text-sm text-gray-600 mb-1">
+                    <span className="font-medium">Location:</span> {event.location}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+
+          {/* Create Event Card */}
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-dashed border-purple-400 hover:border-purple-600"
+            onClick={() => setIsCreateModalOpen(true)}
+          >
+            <CardContent className="p-6 h-full flex flex-col items-center justify-center min-h-[300px]">
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-purple-100 rounded-full mb-4">
+                  <Plus className="h-10 w-10 text-purple-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Create Class or Event</h3>
+                <p className="text-sm text-gray-600">Click to add a new event or class</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+
+      {/* Create Event Modal */}
+      <CreateEventModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateEvent}
+      />
+    </div>
+  )
+}
+
