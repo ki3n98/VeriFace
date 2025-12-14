@@ -19,7 +19,8 @@ import {
   Cell,
   Tooltip,
 } from "recharts"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 
 // Hardcoded data
 const summaryStats = {
@@ -162,6 +163,16 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function Dashboard() {
   const [viewMode, setViewMode] = useState("week")
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const eventId = searchParams.get("eventId")
+
+  // Log eventId for now - will be used later when connecting to APIs
+  useEffect(() => {
+    if (eventId) {
+      console.log("Viewing dashboard for event:", eventId)
+    }
+  }, [eventId])
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -175,7 +186,15 @@ export default function Dashboard() {
         </div>
 
         <nav className="flex-1 space-y-2">
-          <button className="w-full text-left px-4 py-3 rounded-lg bg-purple-600 font-medium">Home</button>
+          <button
+            onClick={() => router.push("/events")}
+            className="w-full text-left px-4 py-3 rounded-lg hover:bg-purple-600/50 transition-colors"
+          >
+            Events
+          </button>
+          <button className="w-full text-left px-4 py-3 rounded-lg bg-purple-600 font-medium">
+            Dashboard
+          </button>
           <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-purple-600/50 transition-colors">
             Settings
           </button>
@@ -187,7 +206,12 @@ export default function Dashboard() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="rounded-full">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
+              onClick={() => router.push("/events")}
+            >
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </div>
