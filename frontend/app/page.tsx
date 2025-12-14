@@ -9,17 +9,11 @@ export default function Home() {
             <h1 className="text-2xl font-bold text-white">VeriFace</h1>
           </div>
           <div className="space-x-4">
-            <button
-              type="button"
-              className="px-4 py-2 text-white hover:text-purple-700 transition"
-            >
-              Features
-            </button>
             <a
-              href="/sign-in"
+              href="/sign-up"
               className="inline-block px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition"
             >
-              Sign-in
+              Sign-Up
             </a>
           </div>
         </div>
