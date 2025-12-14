@@ -6,6 +6,8 @@ from app.db.models.event_user import EventUser
 from app.db.models.user import User
 from app.db.models.event import Event
 
+from typing import List
+
 
 class EventUserRepository(BaseRepository):
 
@@ -47,7 +49,7 @@ class EventUserRepository(BaseRepository):
             raise error
 
 
-    def get_users_from_event(self, event_id: int) -> list[UserOutput]:
+    def get_users_from_event(self, event_id: int) -> List[UserOutput]:
         users = (
             self.session.query(EventUser)
             .join(User, User.id == EventUser.user_id)
@@ -57,7 +59,7 @@ class EventUserRepository(BaseRepository):
         return [UserOutput.model_validate(u) for u in users]
     
 
-    def get_events_from_user(self, user_id: int) -> list[EventOutput]:
+    def get_events_for_user(self, user_id: int) -> List[EventOutput]:
         """Return all events that a given user belongs to."""
         events = (
             self.session.query(EventUser)
@@ -66,5 +68,5 @@ class EventUserRepository(BaseRepository):
             .all()
         )
 
-        return [EventOutput.from_orm(e) for e in events] 
+        return [EventOutput.model_validate(e) for e in events] 
 

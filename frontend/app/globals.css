@@ -120,3 +120,8 @@
     @apply bg-background text-foreground;
   }
 }
+#page-root {
+  min-height: 100vh;
+  width: 100%;
+  display: block; /* Prevent global flex/grid styles from affecting layouts */
+}

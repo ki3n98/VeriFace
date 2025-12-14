@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "VeriFace",
-  description: "Seemless Check-in powered by AI",
+  description: "Seamless Check-in powered by AI",
 };
 
 export default function RootLayout({
@@ -27,7 +27,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <div id="page-root">{children}</div>
       </body>
     </html>
   );
