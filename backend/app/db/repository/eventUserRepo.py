@@ -51,22 +51,22 @@ class EventUserRepository(BaseRepository):
 
     def get_users_from_event(self, event_id: int) -> List[UserOutput]:
         users = (
-            self.session.query(EventUser)
-            .join(User, User.id == EventUser.user_id)
+            self.session.query(User)
+            .join(EventUser, User.id == EventUser.user_id)
             .filter(EventUser.event_id == event_id)
             .all()
         )
-        return [UserOutput.model_validate(u) for u in users]
+        return [UserOutput.model_validate(u, from_attributes=True) for u in users]
     
 
     def get_events_for_user(self, user_id: int) -> List[EventOutput]:
         """Return all events that a given user belongs to."""
         events = (
-            self.session.query(EventUser)
-            .join(Event, Event.id == EventUser.event_id)
+            self.session.query(Event)
+            .join(EventUser, Event.id == EventUser.event_id)
             .filter(EventUser.user_id == user_id)
             .all()
         )
 
-        return [EventOutput.model_validate(e) for e in events] 
+        return [EventOutput.model_validate(e, from_attributes=True) for e in events] 
 

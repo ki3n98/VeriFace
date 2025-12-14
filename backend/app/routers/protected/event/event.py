@@ -101,14 +101,14 @@ async def remove_event_user_relationship(
 #Have not test
 @eventRouter.post("/getUsers")
 async def get_users(
-    event_id=EventId,
+    event_id: EventId,
     user: UserOutput = Depends(get_current_user),
     session: Session = Depends(get_db),
 ):
     try:
         if not check_permission(
             user_id=user.id, 
-            event_id=event_id.event_id,
+            event_id=event_id.id,
             session=session):
         
             raise HTTPException(
@@ -124,7 +124,21 @@ async def get_users(
 
 
 @eventRouter.post("/getEvent")
-async def get_users(
+async def get_event_post(
+    user: UserOutput = Depends(get_current_user),
+    session: Session = Depends(get_db),
+):
+    try:
+        return EventUserService(session=session).get_event(
+            user_id=user.id
+            )
+    except Exception as error:
+        print(error)
+        raise error
+
+
+@eventRouter.get("/getEventsFromUser")
+async def get_events_from_user(
     user: UserOutput = Depends(get_current_user),
     session: Session = Depends(get_db),
 ):

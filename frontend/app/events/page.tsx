@@ -6,52 +6,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus, X, Image as ImageIcon } from "lucide-react"
 import { CreateEventModal } from "./components/CreateEventModal"
-
-interface Event {
-  id: number
-  name: string
-  location?: string
-  participantCount?: number
-  imageUrl?: string
-}
-
-// Hardcoded events data
-const initialEvents: Event[] = [
-  {
-    id: 1,
-    name: "CECS 491A",
-    location: "CSULB",
-    participantCount: 45,
-  },
-  {
-    id: 2,
-    name: "MarinaHacks",
-    location: "Marina",
-    participantCount: 120,
-  },
-  {
-    id: 3,
-    name: "CS Job Fair",
-    location: "CSULB",
-    participantCount: 300,
-  },
-  {
-    id: 4,
-    name: "CECS 329",
-    location: "CSULB",
-    participantCount: 60,
-  },
-  {
-    id: 5,
-    name: "CECS 325",
-    location: "CSULB",
-    participantCount: 55,
-  },
-]
+import { useEvents } from "@/lib/hooks/useEvents"
+import { apiClient } from "@/lib/api"
 
 export default function EventsPage() {
   const router = useRouter()
-  const [events, setEvents] = useState<Event[]>(initialEvents)
+  const { events, loading, error, refetch } = useEvents()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
   const handleEventClick = (eventId: number) => {
@@ -59,27 +19,73 @@ export default function EventsPage() {
     router.push(`/dashboard?eventId=${eventId}`)
   }
 
-  const handleCreateEvent = (eventData: {
+  const handleCreateEvent = async (eventData: {
     name: string
     location?: string
     participantCount?: number
     description?: string
   }) => {
-    const newEvent: Event = {
-      id: events.length > 0 ? Math.max(...events.map((e) => e.id)) + 1 : 1,
-      name: eventData.name,
-      location: eventData.location,
-      participantCount: eventData.participantCount,
+    try {
+      const response = await apiClient.post('/protected/event/createEvent', {
+        event_name: eventData.name,
+        location: eventData.location,
+        start_date: null, // You can add date pickers later
+        end_date: null,
+      })
+
+      if (response.error) {
+        alert(`Failed to create event: ${response.error}`)
+        return
+      }
+
+      // Refresh events list (if this fails, still close modal since event was created)
+      try {
+        await refetch()
+      } catch (refetchError) {
+        console.error('Error refreshing events list:', refetchError)
+        // Event was created successfully, so we still close the modal
+        // User can manually refresh the page to see the new event
+      }
+      setIsCreateModalOpen(false)
+    } catch (error) {
+      console.error('Error creating event:', error)
+      alert('Failed to create event. Please try again.')
     }
-    setEvents([...events, newEvent])
-    setIsCreateModalOpen(false)
   }
 
-  const handleDeleteEvent = (eventId: number, e: React.MouseEvent) => {
+  const handleDeleteEvent = async (eventId: number, e: React.MouseEvent) => {
     e.stopPropagation() // Prevent triggering the card click
-    if (confirm("Are you sure you want to delete this event?")) {
-      setEvents(events.filter((event) => event.id !== eventId))
+    
+    if (!confirm("Are you sure you want to delete this event?")) {
+      return
     }
+
+    try {
+      const response = await apiClient.post('/protected/event/removeEvent', {
+        event_id: eventId,
+      })
+
+      if (response.error) {
+        alert(`Failed to delete event: ${response.error}`)
+        return
+      }
+
+      // Refresh events list
+      await refetch()
+    } catch (error) {
+      console.error('Error deleting event:', error)
+      alert('Failed to delete event. Please try again.')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-xl text-gray-600">Loading events...</div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -104,6 +110,12 @@ export default function EventsPage() {
           </p>
         </div>
 
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+            Error loading events: {error}
+          </div>
+        )}
+
         {/* Events Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Event Cards */}
@@ -125,27 +137,14 @@ export default function EventsPage() {
 
                 {/* Event Image Placeholder */}
                 <div className="w-full h-48 bg-gray-200 rounded-lg mb-4 flex items-center justify-center">
-                  {event.imageUrl ? (
-                    <img
-                      src={event.imageUrl}
-                      alt={event.name}
-                      className="w-full h-full object-cover rounded-lg"
-                    />
-                  ) : (
-                    <ImageIcon className="h-16 w-16 text-gray-400" />
-                  )}
+                  <ImageIcon className="h-16 w-16 text-gray-400" />
                 </div>
 
                 {/* Event Info */}
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">{event.name}</h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{event.event_name}</h3>
                 {event.location && (
                   <p className="text-sm text-gray-600 mb-1">
                     <span className="font-medium">Location:</span> {event.location}
-                  </p>
-                )}
-                {event.participantCount !== undefined && (
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">Participants:</span> {event.participantCount}
                   </p>
                 )}
               </CardContent>

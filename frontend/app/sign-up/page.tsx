@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { apiClient } from "@/lib/api";
 import styles from "../sign-in/sign-in.module.css"; // reuse same styling
 
 export default function SignUpPage() {
@@ -9,7 +10,7 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(""); // <-- NEW
+  const [success, setSuccess] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,23 +18,16 @@ export default function SignUpPage() {
     setSuccess("");
 
     try {
-      const res = await fetch("http://localhost:80/auth/signup", {
-        method: "POST",
-        headers: {
-          accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          first_name: firstName,
-          last_name: lastName,
-          email,
-          password,
-          embedding: [], // required by your backend
-        }),
+      const response = await apiClient.signup({
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        password,
+        embedding: [],
       });
 
-      if (!res.ok) {
-        setError("Unable to create account. Please try again.");
+      if (response.error) {
+        setError(response.error);
         return;
       }
 

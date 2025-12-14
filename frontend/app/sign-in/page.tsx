@@ -1,39 +1,33 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { apiClient } from "@/lib/api";
 import styles from "./sign-in.module.css";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
 
     try {
-      const res = await fetch("http://localhost:80/auth/login", {
-        method: "POST",
-        headers: {
-          accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      const response = await apiClient.login(email, password);
 
-      if (!res.ok) {
-        throw new Error("Invalid email or password");
+      if (response.error) {
+        setError(response.error);
+        return;
       }
 
-      const data = await res.json();
-      console.log("Login success:", data);
-
-      // Save token
-      localStorage.setItem("token", data.access_token);
-
-      // Redirect to dashboard/home page
-      window.location.href = "/home";
+      // Token is already saved by apiClient.login()
+      // Redirect to events page
+      router.push("/events");
     } catch (error) {
-      alert("Login failed. Check your email and password.");
+      setError("Login failed. Please try again.");
       console.error(error);
     }
   };
@@ -44,6 +38,8 @@ export default function SignInPage() {
 
       <div className={styles.card}>
         <h1 className={styles.title}>Sign In</h1>
+
+        {error && <p className={styles.error}>{error}</p>}
 
         <form onSubmit={handleSubmit} className={styles.form}>
           <label className={styles.label}>

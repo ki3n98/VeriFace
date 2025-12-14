@@ -20,7 +20,9 @@ import {
   Tooltip,
 } from "recharts"
 import { useState, useEffect } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
+import Link from "next/link"
+import { usePathname, useRouter } from "next/navigation"
+import { apiClient } from "@/lib/api"
 
 // Hardcoded data
 const summaryStats = {
@@ -161,44 +163,116 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null
 }
 
+interface User {
+  id: number
+  first_name: string
+  last_name: string
+  email: string
+}
+
 export default function Dashboard() {
   const [viewMode, setViewMode] = useState("week")
+  const pathname = usePathname()
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const eventId = searchParams.get("eventId")
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  // Log eventId for now - will be used later when connecting to APIs
   useEffect(() => {
-    if (eventId) {
-      console.log("Viewing dashboard for event:", eventId)
+    async function fetchUser() {
+      try {
+        const response = await apiClient.getCurrentUser()
+        // Backend returns {"data": user}, API client wraps it as {data: {data: user}}
+        const userData = response.data?.data
+        if (userData) {
+          setUser(userData)
+        }
+      } catch (error) {
+        console.error('Failed to fetch user:', error)
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [eventId])
+    fetchUser()
+  }, [])
+
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase()
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
       <aside className="w-64 bg-purple-500 text-white p-6 flex flex-col">
-        <div className="flex items-center gap-3 mb-12">
+        <Link href="/dashboard" className="flex items-center gap-3 mb-12 cursor-pointer hover:opacity-80 transition-opacity">
           <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
             <img src="/logo.png" alt="VeriFace Logo" className="h-8 w-auto" />
           </div>
           <span className="text-xl font-bold">VeriFace</span>
-        </div>
+        </Link>
 
         <nav className="flex-1 space-y-2">
-          <button
-            onClick={() => router.push("/events")}
-            className="w-full text-left px-4 py-3 rounded-lg hover:bg-purple-600/50 transition-colors"
+          <Link
+            href="/dashboard"
+            className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
+              pathname === '/dashboard'
+                ? 'bg-purple-600 font-medium'
+                : 'hover:bg-purple-600/50'
+            }`}
+          >
+            Home
+          </Link>
+          <Link
+            href="/events"
+            className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
+              pathname === '/events'
+                ? 'bg-purple-600 font-medium'
+                : 'hover:bg-purple-600/50'
+            }`}
           >
             Events
-          </button>
-          <button className="w-full text-left px-4 py-3 rounded-lg bg-purple-600 font-medium">
-            Dashboard
-          </button>
-          <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-purple-600/50 transition-colors">
+          </Link>
+          <Link
+            href="/dashboard/settings"
+            className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
+              pathname === '/dashboard/settings'
+                ? 'bg-purple-600 font-medium'
+                : 'hover:bg-purple-600/50'
+            }`}
+          >
             Settings
-          </button>
+          </Link>
         </nav>
+
+        {/* Profile Section */}
+        <div className="pt-4 border-t border-purple-400/30">
+          {loading ? (
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-purple-400/30 animate-pulse" />
+              <div className="flex-1">
+                <div className="h-4 bg-purple-400/30 rounded animate-pulse mb-2" />
+                <div className="h-3 bg-purple-400/30 rounded animate-pulse w-2/3" />
+              </div>
+            </div>
+          ) : user ? (
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10 border-2 border-white">
+                <AvatarFallback className="bg-purple-600 text-white font-semibold">
+                  {getInitials(user.first_name, user.last_name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm truncate">
+                  {user.first_name} {user.last_name}
+                </div>
+                <div className="text-xs text-purple-100 truncate">
+                  {user.email}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-purple-100">Not logged in</div>
+          )}
+        </div>
       </aside>
 
       {/* Main Content */}
@@ -206,11 +280,11 @@ export default function Dashboard() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
+            <Button 
+              variant="ghost" 
+              size="icon" 
               className="rounded-full"
-              onClick={() => router.push("/events")}
+              onClick={() => router.back()}
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
