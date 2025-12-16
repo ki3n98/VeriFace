@@ -9,7 +9,7 @@ CREATE_EVENT_URL = f"{BASE_URL}/protected/event/createEvent"
 REMOVE_EVENT_URL = f"{BASE_URL}/protected/event/removeEvent"
 ADD_RELATIONSHIP_UR = f"{BASE_URL}/protected/event/addEventUserRelationship"
 REMOVE_RELATIONSHIP_UR = f"{BASE_URL}/protected/event/removeEventUserRelationship"
-
+GET_USERS_URL = f"{BASE_URL}/protected/event/getUsers"
 
 EMAIL = "test2@example.com"
 PASSWORD = "123"
@@ -70,7 +70,7 @@ def create_event(token:str):
     end = start + timedelta(hours=1)
 
     event_details = {
-        "event_name": "CECS491A-02",
+        "event_name": "VERY NEW CLASS",
         "start_date": start.isoformat(),  # -> '2025-12-11T18:23:45.123456+00:00'
         "end_date": end.isoformat(),
         "location": "CSULB",
@@ -131,6 +131,21 @@ def remove_relationship(token:str, event_id):
     resp.raise_for_status()
 
 
+def get_user(token:str, event_id):
+    headers = {
+        "accept": "application/json",
+        "Authorization": f"Bearer {token}",
+    }
+
+    payload = {
+        "id": event_id    
+    }
+
+    resp = requests.post(GET_USERS_URL, json=payload, headers=headers)
+    print("Get user:", resp.status_code)
+    print("Response:", resp.text)
+    resp.raise_for_status()
+
 
 if __name__ == "__main__":
     token = login_and_get_token()
@@ -138,5 +153,6 @@ if __name__ == "__main__":
     # event = create_event(token)
     # print(event)
     # remove_event(token, event["id"])
-    remove_relationship(token, event_id=7)
+    # remove_relationship(token, event["id"])
+    # print(get_user(token, 14))
 

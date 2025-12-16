@@ -2,6 +2,7 @@ from app.db.repository.eventUserRepo import EventUserRepository
 from app.db.models.event_user import EventUser
 from app.db.schema.EventUser import EventUserCreate, EventUserRemove
 from app.db.schema.event import EventOutput
+from app.db.schema.user import UserOutput
 
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
@@ -33,7 +34,7 @@ class EventUserService:
             raise HTTPException(status_code=400, detail="Removing relationship ran into an error.")
         
 
-    def get_users(self, event_id:int) -> List[EventOutput]:
+    def get_users(self, event_id:int) -> List[UserOutput]:
         try:
             return self.__EventUserRepository.get_users_from_event(event_id=event_id)
         except Exception as error:

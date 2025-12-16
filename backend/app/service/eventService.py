@@ -20,7 +20,7 @@ class EventService:
 
         try:
             event = self.__eventRepository.create_event(event_details)
-            return event
+            return EventOutput.model_validate(event)
         except Exception as error:
             print(error)
             raise error

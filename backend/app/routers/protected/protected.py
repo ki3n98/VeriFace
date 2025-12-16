@@ -1,10 +1,10 @@
 from app.db.schema.user import UserOutput
 from app.core.database import get_db
 from app.service.userService import UserService
+from app.routers.protected.event import eventRouter
 from app.util.embeddings import upload_img_to_embedding
-from fastapi import APIRouter, Depends, UploadFile, File
 from app.util.protectRoute import get_current_user
-from app.routers.protected.event.event import eventRouter
+from fastapi import APIRouter, Depends, UploadFile, File
 from sqlalchemy.orm import Session
 
 protectedRouter = APIRouter()
