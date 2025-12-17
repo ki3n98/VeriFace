@@ -1,6 +1,7 @@
 from app.service.ModelService import ModelService
 from starlette.concurrency import run_in_threadpool
 from PIL import Image, UnidentifiedImageError
+from app.db.models.user import User
 import numpy as np
 import io
 
@@ -40,7 +41,16 @@ async def upload_img_to_embedding(upload_image: UploadFile = File(...)):
     if len(embeddings) == 0:
         raise HTTPException(status_code=422, detail="Cannot detect a face.")
 
-    # emb_json = [np.asarray(e, dtype=float).ravel().tolist() for e in embeddings]
-
     return embeddings[0]
+
+
+async def has_embedding(session, user_id: int) -> bool: 
+        try:
+            user = session.get(User, user_id)
+            #print(user.embedding)
+            return len(user.embedding) > 1
+        
+        except Exception as error: 
+            print(error)
+            raise error
     

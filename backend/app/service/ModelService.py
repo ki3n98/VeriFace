@@ -14,6 +14,7 @@ class ModelService:
 
         return embeddings
 
+
     def __cosine_distance(self, a, b):
         a = np.asarray(a).reshape(-1)
         b = np.asarray(b).reshape(-1)

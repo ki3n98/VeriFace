@@ -10,6 +10,8 @@ REMOVE_EVENT_URL = f"{BASE_URL}/protected/event/removeEvent"
 ADD_RELATIONSHIP_UR = f"{BASE_URL}/protected/event/addEventUserRelationship"
 REMOVE_RELATIONSHIP_UR = f"{BASE_URL}/protected/event/removeEventUserRelationship"
 GET_USERS_URL = f"{BASE_URL}/protected/event/getUsers"
+CREATE_SESSION_URL = f"{BASE_URL}/protected/session/createSession"
+HAS_EMBEDDING_URL = f"{BASE_URL}/protected/model/hasEmbedding"
 
 EMAIL = "test2@example.com"
 PASSWORD = "123"
@@ -147,12 +149,35 @@ def get_user(token:str, event_id):
     resp.raise_for_status()
 
 
+def create_session(token:str, event_id=7):
+    headers = {
+        "accept": "application/json",
+        "Authorization": f"Bearer {token}",
+    }
+
+    payload = {
+        "event_id": event_id    
+    }
+
+    resp = requests.post(CREATE_SESSION_URL, json=payload, headers=headers)
+    print("create session:", resp.status_code)
+    print("Response:", resp.text)
+    resp.raise_for_status()
+
+
+def has_embedding(token:str):
+    headers = {
+        "accept": "application/json",
+        "Authorization": f"Bearer {token}",
+    }
+
+
+    resp = requests.post(HAS_EMBEDDING_URL, headers=headers)
+    print("has embedding session:", resp.status_code)
+    print("Response:", resp.text)
+    resp.raise_for_status()
+
 if __name__ == "__main__":
     token = login_and_get_token()
-    # upload_picture(token)
-    # event = create_event(token)
-    # print(event)
-    # remove_event(token, event["id"])
-    # remove_relationship(token, event["id"])
-    # print(get_user(token, 14))
+    has_embedding(token)
 

@@ -24,8 +24,6 @@ class EventService:
         except Exception as error:
             print(error)
             raise error
-        
-        
 
     def get_event_by_id(self, event_id:int) -> EventOutput:
         event = self.__eventRepository.get_event_by_id(id=event_id)
