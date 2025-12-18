@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
-from app.db.models.session import Session
+from app.db.models.session import Session as SessionEvent
 from app.db.schema.session import SessionInCreate
 from app.db.repository.session import SessionRepository
 
@@ -12,7 +12,7 @@ class SessionService:
 
 
         
-    def create_session(self, session_data: SessionInCreate):
+    def create_session(self, session_data: SessionInCreate) -> SessionEvent:
         try:
             return self.__session_repository.create_session(session_data)
         except IntegrityError as e:
@@ -22,6 +22,8 @@ class SessionService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Could not create session (constraint violation).",
             )
+
+
         
 
     def delete_session(self, session_id: int) -> None:

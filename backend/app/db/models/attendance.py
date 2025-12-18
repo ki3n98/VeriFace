@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, Integer, DateTime, Enum, ForeignKey, String, UniqueConstraint
+    Column, Integer, DateTime, Enum, ForeignKey, UniqueConstraint
 )
 from app.core.database import Base
 import enum
@@ -20,7 +20,7 @@ class Attendance(Base):
     check_in_time = Column(DateTime, nullable=True)
     check_out_time = Column(DateTime, nullable=True)
 
-    status = Column(Enum(AttendanceStatus), nullable=False, default=AttendanceStatus.PRESENT)
+    status = Column(Enum(AttendanceStatus), nullable=False, default=AttendanceStatus.ABSENT)
 
 
     __table_args__ = (

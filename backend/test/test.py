@@ -72,7 +72,7 @@ def create_event(token:str):
     end = start + timedelta(hours=1)
 
     event_details = {
-        "event_name": "VERY NEW CLASS",
+        "event_name": "CECS491A-DEMO",
         "start_date": start.isoformat(),  # -> '2025-12-11T18:23:45.123456+00:00'
         "end_date": end.isoformat(),
         "location": "CSULB",
@@ -163,6 +163,7 @@ def create_session(token:str, event_id=7):
     print("create session:", resp.status_code)
     print("Response:", resp.text)
     resp.raise_for_status()
+    return resp.json()
 
 
 def has_embedding(token:str):
@@ -177,7 +178,25 @@ def has_embedding(token:str):
     print("Response:", resp.text)
     resp.raise_for_status()
 
-if __name__ == "__main__":
-    token = login_and_get_token()
-    has_embedding(token)
 
+def upload_picture_godmode(user_id, img_path):
+
+
+    files = {
+        # "upload_image" must match the parameter name in your endpoint
+        "upload_image": (
+            IMAGE_PATH.name,
+            open(IMAGE_PATH, "rb"),
+            "image/png",  # or "image/png" etc.
+        )
+    }
+
+    resp = requests.post(UPLOAD_URL, files=files)
+    print("Upload status:", resp.status_code)
+    print("Response:", resp.text)
+    resp.raise_for_status()
+
+if __name__ == "__main__":
+    # token = login_and_get_token()
+    # session = create_session(token, 15)
+    upload_picture_godmode()

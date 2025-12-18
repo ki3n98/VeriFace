@@ -1,20 +1,20 @@
 from .base import BaseRepository
-from app.db.models.session import Session
-from app.db.schema.session import SessionInCreate
+from app.db.models.session import Session as SessionEvent
+from app.db.schema.session import SessionInCreate, SessionOutput
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy import func
 
 
 class SessionRepository(BaseRepository):
 
-    def create_session(self, session_data: SessionInCreate) -> Session:
+    def create_session(self, session_data: SessionInCreate) -> SessionEvent:
         try:
             # compute sequence number
             session_data.sequence_number = self.__get_next_sequence_number(
                 session_data.event_id
             )
 
-            new_session = Session(**session_data.model_dump(exclude_none=True))
+            new_session = SessionEvent(**session_data.model_dump(exclude_none=True))
 
             self.session.add(new_session)
             self.session.commit()
@@ -30,8 +30,8 @@ class SessionRepository(BaseRepository):
     def __get_next_sequence_number(self, event_id: int) -> int:
         
         max_seq = (
-            self.session.query(func.max(Session.sequence_number))
-            .filter(Session.event_id == event_id)
+            self.session.query(func.max(SessionEvent.sequence_number))
+            .filter(SessionEvent.event_id == event_id)
             .scalar()
         )
 
@@ -40,8 +40,8 @@ class SessionRepository(BaseRepository):
     #did not test
     def delete_session(self, session_id: int) -> None:
         session_obj = (
-            self.session.query(Session)
-            .filter(Session.id == session_id)
+            self.session.query(SessionEvent)
+            .filter(SessionEvent.id == session_id)
             .one_or_none()
         )
 

@@ -2,14 +2,14 @@ from app.service.ModelService import ModelService
 from starlette.concurrency import run_in_threadpool
 from PIL import Image, UnidentifiedImageError
 from app.db.models.user import User
-import numpy as np
-import io
-
 from fastapi import UploadFile, File, HTTPException
 
 
-model = ModelService()
+import numpy as np
+import io
 
+
+model = ModelService()
 
 ALLOWED = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_SIZE = 5 * 1024 * 1024  # 5 MB
