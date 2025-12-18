@@ -24,7 +24,7 @@ class AttendanceService:
         self,
         session_id: int,
         face_embedding: list[float],
-        threshold: float = 0.5,
+        threshold: float = 0.45,
     ):
         """
         Given a session_id and a face embedding:
