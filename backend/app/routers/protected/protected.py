@@ -1,4 +1,4 @@
-from app.db.schema.user import UserOutput
+from app.db.schema.user import UserOutput, UserInUpdate
 from app.core.database import get_db
 from app.service.userService import UserService
 from app.routers.protected.event import eventRouter
@@ -6,7 +6,7 @@ from app.routers.protected.session import sessionRouter
 from app.routers.protected.model import modelRouter
 from app.util.embeddings import upload_img_to_embedding
 from app.util.protectRoute import get_current_user
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, UploadFile, File, Form
 from sqlalchemy.orm import Session
 
 protectedRouter = APIRouter()
@@ -38,3 +38,22 @@ async def upload_picture(
     except Exception as error:
         print(error)
         raise error
+
+
+# @protectedRouter.post("/uploadPicture")
+# async def upload_picture(
+#     user_id: int = Form(...),
+#     upload_image: UploadFile = File(...),
+#     session=Depends(get_db),
+# ):
+#     embedding = await upload_img_to_embedding(upload_image)
+#     embedding = [float(x) for x in embedding]
+
+#     try:
+#         return UserService(session=session).update_user_by_id(
+#             user_id=user_id,
+#             updates={"embedding": embedding},
+#         )
+#     except Exception as error:
+#         print(error)
+#         raise error

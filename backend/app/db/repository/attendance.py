@@ -1,6 +1,8 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .base import BaseRepository
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from app.db.models.attendance import Attendance, AttendanceStatus
 from app.db.models.session import Session as SessionModel
@@ -75,3 +77,40 @@ class AttendanceRepository(BaseRepository):
             self.session.refresh(att)
 
         return new_attendances
+
+
+
+    def check_in(self, user_id: int, session_id: int, when: datetime | None = None) -> Attendance:
+        """
+        Mark a user as checked in for a session.
+        If no Attendance exists yet, create one.
+        """
+        if when is None:
+            when = datetime.now(timezone.utc)
+            tz_pacific = ZoneInfo("America/Los_Angeles")
+            when = when.astimezone(tz_pacific)
+
+        att = (
+            self.session.query(Attendance)
+            .filter(
+                Attendance.user_id == user_id,
+                Attendance.session_id == session_id
+            )
+            .first()
+        )
+
+        if not att:
+            att = Attendance(
+                user_id=user_id,
+                session_id=session_id,
+                check_in_time=when,
+                status=AttendanceStatus.PRESENT,
+            )
+            self.session.add(att)
+        else:
+            att.check_in_time = when
+            att.status = AttendanceStatus.PRESENT
+
+        self.session.commit()
+        self.session.refresh(att)
+        return att

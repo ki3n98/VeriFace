@@ -15,7 +15,7 @@ HAS_EMBEDDING_URL = f"{BASE_URL}/protected/model/hasEmbedding"
 
 EMAIL = "test2@example.com"
 PASSWORD = "123"
-IMAGE_PATH = Path("./test_img.png")
+# IMAGE_PATH = Path("./test_img.png")
 
 
 def login_and_get_token() -> str:
@@ -179,24 +179,59 @@ def has_embedding(token:str):
     resp.raise_for_status()
 
 
-def upload_picture_godmode(user_id, img_path):
+def upload_picture_godmode(user_id, IMAGE_PATH):
+    if not IMAGE_PATH.exists():
+        raise FileNotFoundError(f"Image not found: {IMAGE_PATH}")
 
-
-    files = {
-        # "upload_image" must match the parameter name in your endpoint
-        "upload_image": (
-            IMAGE_PATH.name,
-            open(IMAGE_PATH, "rb"),
-            "image/png",  # or "image/png" etc.
-        )
+    # This will be sent as form fields in the multipart request
+    data = {
+        "user_id": str(user_id),  # or just user_id, both are fine
     }
 
-    resp = requests.post(UPLOAD_URL, files=files)
-    print("Upload status:", resp.status_code)
-    print("Response:", resp.text)
-    resp.raise_for_status()
+    with open(IMAGE_PATH, "rb") as f:
+        files = {
+            "upload_image": (
+                IMAGE_PATH.name,
+                f,
+                "image/jpeg",  # or "image/png", etc.
+            )
+        }
+
+        resp = requests.post(UPLOAD_URL, data=data, files=files)
+        print("Upload status:", resp.status_code)
+        print("Response:", resp.text)
+        resp.raise_for_status()
+
+
+def check_in(session_id, IMAGE_PATH): 
+    if not IMAGE_PATH.exists():
+        raise FileNotFoundError(f"Image not found: {IMAGE_PATH}")
+
+    
+    checkin_url = f"{BASE_URL}/protected/session/checkin"
+
+    with open(IMAGE_PATH, "rb") as f:
+        files = {
+            "upload_image": (
+                IMAGE_PATH.name,
+                f,
+                "image/jpeg",  # or "image/png", etc.
+            )
+        }
+
+        resp = requests.post(
+            checkin_url,
+            params={"session_id": session_id},
+            files=files,
+        )
+        print("check in status:", resp.status_code)
+        print("Response:", resp.text)
+        resp.raise_for_status()
+
 
 if __name__ == "__main__":
     # token = login_and_get_token()
     # session = create_session(token, 15)
-    upload_picture_godmode()
+    # upload_picture_godmode(12, Path("./jason.jpg"))
+    session_id = 21
+    check_in(session_id, Path("./hector.jpg"))
