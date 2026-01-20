@@ -6,7 +6,7 @@ from app.db.schema.user import UserOutput
 from app.db.schema.event import EventInCreate, EventToRemove, EventId, EventOutput
 from app.db.schema.EventUser import EventUserCreate, EventUserRemove
 from app.service.eventService import EventService
-from app.service.EventUserService import EventUserService
+from app.service.eventUserService import EventUserService
 
 from sqlalchemy.orm import Session
 from typing import List

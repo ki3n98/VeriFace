@@ -24,7 +24,7 @@ class AttendanceService:
         self,
         session_id: int,
         face_embedding: list[float],
-        threshold: float = 0.45,
+        threshold: float = 0.5,
     ):
         """
         Given a session_id and a face embedding:
@@ -57,7 +57,6 @@ class AttendanceService:
         # 2) For each attendance row, get the user and compare embeddings
         for att in attendances:
             user = self.session.get(User, att.user_id)
-            print(user)
             if not user or not user.embedding:
                 continue
 

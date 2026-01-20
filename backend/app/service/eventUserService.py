@@ -5,6 +5,7 @@ from app.db.schema.event import EventOutput
 from app.db.schema.user import UserOutput
 
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from typing import List
 
@@ -19,6 +20,13 @@ class EventUserService:
         try:
             new_relationship = self.__EventUserRepository.add_relationship(event_user)
             return new_relationship
+        
+        #duplicate error
+        except IntegrityError as e:
+            if "unique constraint" in str(e).lower() or "EventsUsers_pkey" in str(e):
+                self.__EventUserRepository.session.rollback()
+                raise HTTPException(status_code=400, detail="Event User Relationship already exist.")
+
         except Exception as error:
             print(error)
             raise error

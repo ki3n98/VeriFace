@@ -71,4 +71,4 @@ class UserService:
             updates=updates
         )
 
-        return updated_user
+        return UserOutput.model_validate(updated_user, from_attributes=True)

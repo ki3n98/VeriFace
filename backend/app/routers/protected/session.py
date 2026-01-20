@@ -49,11 +49,11 @@ async def check_in_with_face(
     upload_image: UploadFile = File(...),
     session: Session = Depends(get_db),
 ):
-    # 1) Convert image -> face embedding (ensures 1 face, size, etc.)
+    # Convert image -> face embedding (ensures 1 face, size, etc.)
     embedding = await upload_img_to_embedding(upload_image)
     embedding = [float(x) for x in embedding]  # ensure JSON-serializable list
 
-    # 2) Use service to find matching user and check them in
+    # Use service to find matching user and check them in
     service = AttendanceService(session=session)
     result = service.check_in_with_embedding(session_id=session_id, face_embedding=embedding)
 

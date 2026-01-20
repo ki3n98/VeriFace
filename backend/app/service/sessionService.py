@@ -11,7 +11,6 @@ class SessionService:
         self.__session_repository = SessionRepository(session=session)
 
 
-        
     def create_session(self, session_data: SessionInCreate) -> SessionEvent:
         try:
             return self.__session_repository.create_session(session_data)
@@ -23,8 +22,6 @@ class SessionService:
                 detail="Could not create session (constraint violation).",
             )
 
-
-        
 
     def delete_session(self, session_id: int) -> None:
 
