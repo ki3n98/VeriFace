@@ -1,8 +1,9 @@
 from app.db.repository.eventRepo import EventRepository
 from app.db.schema.event import EventInCreate, EventInUpdate, EventOutput, EventToRemove
+# from app.db.schema.EventUser import EventUserRemove
+# from app.service.eventUserService import EventUserService
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from typing import Any, Dict
 
 
 class EventService:
@@ -33,6 +34,10 @@ class EventService:
     
 
     def remove_event(self, event_to_remove: EventToRemove) ->str:
+        # EventUserService(session=self.__eventRepository.session).remove_relationship(
+        #     event_user=EventUserRemove(user_id=event_to_remove.user_id, event_id=event_to_remove.event_id)
+        # )
+
         result = self.__eventRepository.delete_event_by_id(
             user_id = event_to_remove.user_id, 
             event_id = event_to_remove.event_id

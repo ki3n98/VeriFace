@@ -67,6 +67,5 @@ class EventUserRepository(BaseRepository):
             .filter(EventUser.user_id == user_id)
             .all()
         )
-
         return [EventOutput.model_validate(e, from_attributes=True) for e in events] 
-
+    
