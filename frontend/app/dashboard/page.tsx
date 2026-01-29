@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ArrowLeft, Upload, QrCode, Download, TrendingUp, TrendingDown, AlertCircle, Users, UserPlus } from "lucide-react"
+import { PanelLeft, Upload, QrCode, Download, TrendingUp, TrendingDown, AlertCircle, Users, UserPlus } from "lucide-react"
 import {
   Bar,
   BarChart,
@@ -92,6 +92,7 @@ export default function Dashboard() {
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [members, setMembers] = useState<EventMember[]>([])
@@ -165,12 +166,21 @@ export default function Dashboard() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <aside className="w-64 bg-purple-500 text-white p-6 flex flex-col">
-        <Link href="/dashboard" className="flex items-center gap-3 mb-12 cursor-pointer hover:opacity-80 transition-opacity">
+      <aside
+        className={`bg-purple-500 text-white flex flex-col transition-all duration-300 ${
+          isSidebarCollapsed ? "w-20 px-4 py-6" : "w-64 p-6"
+        }`}
+      >
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-3 mb-12 cursor-pointer hover:opacity-80 transition-opacity"
+        >
           <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
             <img src="/logo.png" alt="VeriFace Logo" className="h-8 w-auto" />
           </div>
-          <span className="text-xl font-bold">VeriFace</span>
+          {!isSidebarCollapsed && (
+            <span className="text-xl font-bold whitespace-nowrap">VeriFace</span>
+          )}
         </Link>
 
         <nav className="flex-1 space-y-2">
@@ -182,7 +192,7 @@ export default function Dashboard() {
                 : 'hover:bg-purple-600/50'
             }`}
           >
-            Home
+            {isSidebarCollapsed ? "H" : "Home"}
           </Link>
           <Link
             href="/events"
@@ -192,7 +202,7 @@ export default function Dashboard() {
                 : 'hover:bg-purple-600/50'
             }`}
           >
-            Events
+            {isSidebarCollapsed ? "E" : "Events"}
           </Link>
           <Link
             href="/dashboard/settings"
@@ -202,7 +212,7 @@ export default function Dashboard() {
                 : 'hover:bg-purple-600/50'
             }`}
           >
-            Settings
+            {isSidebarCollapsed ? "S" : "Settings"}
           </Link>
         </nav>
 
@@ -211,10 +221,12 @@ export default function Dashboard() {
           {loading ? (
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-purple-400/30 animate-pulse" />
-              <div className="flex-1">
-                <div className="h-4 bg-purple-400/30 rounded animate-pulse mb-2" />
-                <div className="h-3 bg-purple-400/30 rounded animate-pulse w-2/3" />
-              </div>
+              {!isSidebarCollapsed && (
+                <div className="flex-1">
+                  <div className="h-4 bg-purple-400/30 rounded animate-pulse mb-2" />
+                  <div className="h-3 bg-purple-400/30 rounded animate-pulse w-2/3" />
+                </div>
+              )}
             </div>
           ) : user ? (
             <div className="flex items-center gap-3">
@@ -223,17 +235,21 @@ export default function Dashboard() {
                   {getInitials(user.first_name, user.last_name)}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-sm truncate">
-                  {user.first_name} {user.last_name}
+              {!isSidebarCollapsed && (
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm truncate">
+                    {user.first_name} {user.last_name}
+                  </div>
+                  <div className="text-xs text-purple-100 truncate">
+                    {user.email}
+                  </div>
                 </div>
-                <div className="text-xs text-purple-100 truncate">
-                  {user.email}
-                </div>
-              </div>
+              )}
             </div>
           ) : (
-            <div className="text-sm text-purple-100">Not logged in</div>
+            !isSidebarCollapsed && (
+              <div className="text-sm text-purple-100">Not logged in</div>
+            )
           )}
         </div>
       </aside>
@@ -245,11 +261,15 @@ export default function Dashboard() {
           <div className="flex items-center gap-4">
             <Button 
               variant="ghost" 
-              size="icon" 
+              size="icon"
               className="rounded-full"
-              onClick={() => router.back()}
+              onClick={() => setIsSidebarCollapsed((prev) => !prev)}
             >
-              <ArrowLeft className="h-5 w-5" />
+              <PanelLeft
+                className={`h-5 w-5 transition-transform duration-300 ${
+                  isSidebarCollapsed ? "rotate-180" : ""
+                }`}
+              />
             </Button>
           </div>
           <div className="flex items-center gap-2">
