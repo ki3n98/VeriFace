@@ -172,7 +172,7 @@ async def upload_users_csv(
         if not check_permission(user_id=user.id, event_id=event_id, session=session):
             raise HTTPException(
                 status_code=403,
-                detail="You do not have permission to add users to taht event"
+                detail="You do not have permission to add users to that event"
             )
         
         #validate type and sizze
