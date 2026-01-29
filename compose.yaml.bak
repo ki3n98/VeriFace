@@ -1,0 +1,58 @@
+name: veriface
+services:
+  server:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    develop:
+      watch:
+        - action: rebuild
+          path: ./backend/requirements.txt
+        - action: sync
+          path: ./backend
+          target: /app
+          ignore:
+            - __pycache__/
+    networks:
+      - app-network
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    develop:
+      watch:
+        - action: rebuild
+          path: ./frontend/package.json
+        - action: rebuild
+          path: ./frontend/package-lock.json
+        - action: rebuild
+          path: ./frontend/next.config.js
+        - action: sync
+          path: ./frontend
+          target: /app
+          ignore:
+            - node_modules/
+            - .next/
+    environment:
+      - SERVER_URL=http://server:80
+    networks:
+      - app-network
+    depends_on:
+      server:
+        condition: service_started
+
+
+networks:
+  app-network:
