@@ -232,6 +232,6 @@ def check_in(session_id, IMAGE_PATH):
 if __name__ == "__main__":
     token = login_and_get_token()
     # session = create_session(token, 15)
-    upload_picture_godmode(12, Path("./jason.jpg"))
+    # upload_picture_godmode(12, Path("./jason.jpg"))
     session_id = 21
     check_in(session_id, Path("./hector.jpg"))
