@@ -1,17 +1,18 @@
 from app.service.ModelService import ModelService
 from starlette.concurrency import run_in_threadpool
 from PIL import Image, UnidentifiedImageError
+from app.db.models.user import User
+from fastapi import UploadFile, File, HTTPException
+
+
 import numpy as np
 import io
-
-from fastapi import UploadFile, File, HTTPException
 
 
 model = ModelService()
 
-
 ALLOWED = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-MAX_SIZE = 5 * 1024 * 1024  # 5 MB
+MAX_SIZE = 20 * 1024 * 1024  # 5 MB
 
 def _bytes_to_rgb_array(data: bytes) -> np.ndarray:
     try:
@@ -40,7 +41,30 @@ async def upload_img_to_embedding(upload_image: UploadFile = File(...)):
     if len(embeddings) == 0:
         raise HTTPException(status_code=422, detail="Cannot detect a face.")
 
-    # emb_json = [np.asarray(e, dtype=float).ravel().tolist() for e in embeddings]
-
     return embeddings[0]
+
+
+async def has_embedding(session, user_id: int) -> bool: 
+    try:
+        user = session.get(User, user_id)
+        #print(user.embedding)
+        return len(user.embedding) > 1
     
+    except Exception as error: 
+        print(error)
+        raise error
+        
+
+
+def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    if a.shape != b.shape:
+        return -1.0
+    denom = np.linalg.norm(a) * np.linalg.norm(b)
+    if denom == 0:
+        return -1.0
+    return float(np.dot(a, b) / denom)
+
+
+def same_identity(a, b, threshold=0.5):
+    d = cosine_similarity(a, b)
+    return d < threshold, d

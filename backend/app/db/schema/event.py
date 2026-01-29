@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Union
 from datetime import datetime
 
@@ -31,6 +31,8 @@ class EventInUpdate(BaseModel):
 
 
 class EventOutput(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     event_name: str
     user_id: int

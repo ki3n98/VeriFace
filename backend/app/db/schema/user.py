@@ -33,3 +33,6 @@ class UserInLogin(BaseModel):
 class UserWithToken(BaseModel):
     token:str
 
+
+class EmailValidator(BaseModel):
+    email:EmailStr
