@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ArrowLeft, Upload, QrCode, Download, TrendingUp, TrendingDown, AlertCircle, Users } from "lucide-react"
+import { ArrowLeft, Upload, QrCode, Download, TrendingUp, TrendingDown, AlertCircle, Users, UserPlus } from "lucide-react"
 import {
   Bar,
   BarChart,
@@ -21,8 +21,9 @@ import {
 } from "recharts"
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { apiClient } from "@/lib/api"
+import { AddMemberModal } from "@/app/events/components/AddMemberModal"
 
 // Hardcoded data
 const summaryStats = {
@@ -48,96 +49,12 @@ const distributionData = [
   { name: "Absent", value: 6, percentage: 3 },
 ]
 
-const attendanceList = [
-  {
-    id: 1,
-    name: "John Doe",
-    initials: "JD",
-    studentId: "STU-2024-001",
-    email: "john.doe@email.com",
-    class: "Computer Science 101",
-    checkIn: "08:45 AM",
-    status: "On Time",
-    faceMatch: 99.2,
-  },
-  {
-    id: 2,
-    name: "Emma Smith",
-    initials: "ES",
-    studentId: "STU-2024-002",
-    email: "emma.smith@email.com",
-    class: "Mathematics 201",
-    checkIn: "09:15 AM",
-    status: "Late",
-    faceMatch: 98.7,
-  },
-  {
-    id: 3,
-    name: "Michael Johnson",
-    initials: "MJ",
-    studentId: "STU-2024-003",
-    email: "michael.j@email.com",
-    class: "Physics 301",
-    checkIn: "08:30 AM",
-    status: "On Time",
-    faceMatch: 99.5,
-  },
-  {
-    id: 4,
-    name: "Sarah Williams",
-    initials: "SW",
-    studentId: "STU-2024-004",
-    email: "sarah.w@email.com",
-    class: "Chemistry 202",
-    checkIn: "—",
-    status: "Absent",
-    faceMatch: 0,
-  },
-  {
-    id: 5,
-    name: "David Brown",
-    initials: "DB",
-    studentId: "STU-2024-005",
-    email: "david.b@email.com",
-    class: "English 101",
-    checkIn: "08:50 AM",
-    status: "On Time",
-    faceMatch: 99.8,
-  },
-  {
-    id: 6,
-    name: "Lisa Martinez",
-    initials: "LM",
-    studentId: "STU-2024-006",
-    email: "lisa.m@email.com",
-    class: "Biology 201",
-    checkIn: "09:05 AM",
-    status: "Late",
-    faceMatch: 98.3,
-  },
-  {
-    id: 7,
-    name: "Robert Garcia",
-    initials: "RG",
-    studentId: "STU-2024-007",
-    email: "robert.g@email.com",
-    class: "History 101",
-    checkIn: "08:40 AM",
-    status: "On Time",
-    faceMatch: 99.1,
-  },
-  {
-    id: 8,
-    name: "Jennifer Lee",
-    initials: "JL",
-    studentId: "STU-2024-008",
-    email: "jennifer.l@email.com",
-    class: "Art 202",
-    checkIn: "08:55 AM",
-    status: "On Time",
-    faceMatch: 99.4,
-  },
-]
+interface EventMember {
+  id: number
+  first_name: string
+  last_name: string
+  email: string
+}
 
 const COLORS = {
   present: "hsl(142, 71%, 45%)",
@@ -174,8 +91,13 @@ export default function Dashboard() {
   const [viewMode, setViewMode] = useState("week")
   const pathname = usePathname()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [members, setMembers] = useState<EventMember[]>([])
+  const [loadingMembers, setLoadingMembers] = useState(false)
+  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false)
+  const eventId = searchParams?.get('eventId') ? parseInt(searchParams.get('eventId')!) : null
 
   useEffect(() => {
     async function fetchUser() {
@@ -195,8 +117,49 @@ export default function Dashboard() {
     fetchUser()
   }, [])
 
+  useEffect(() => {
+    async function fetchMembers() {
+      if (!eventId) {
+        setMembers([])
+        return
+      }
+
+      setLoadingMembers(true)
+      try {
+        const response = await apiClient.getEventUsers(eventId)
+        if (response.error) {
+          console.error('Failed to fetch members:', response.error)
+          setMembers([])
+        } else {
+          setMembers(response.data || [])
+        }
+      } catch (error) {
+        console.error('Error fetching members:', error)
+        setMembers([])
+      } finally {
+        setLoadingMembers(false)
+      }
+    }
+    fetchMembers()
+  }, [eventId])
+
+  const handleMemberAdded = () => {
+    // Refresh members list
+    if (eventId) {
+      apiClient.getEventUsers(eventId).then((response) => {
+        if (!response.error && response.data) {
+          setMembers(response.data)
+        }
+      })
+    }
+  }
+
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase()
+  }
+
+  const formatStudentId = (id: number) => {
+    return `STU-2024-${String(id).padStart(3, '0')}`
   }
 
   return (
@@ -367,14 +330,26 @@ export default function Dashboard() {
 
         {/* Action Buttons */}
         <div className="flex gap-3 mb-8">
-          <Button className="bg-purple-600 hover:bg-purple-700">
-            <Upload className="h-4 w-4 mr-2" />
-            Upload members.csv
-          </Button>
-          <Button variant="outline" className="border-purple-600 text-purple-600 hover:bg-purple-50 bg-transparent">
-            <QrCode className="h-4 w-4 mr-2" />
-            Generate Token
-          </Button>
+          {eventId && (
+            <>
+              <Button 
+                className="bg-purple-600 hover:bg-purple-700"
+                onClick={() => setIsAddMemberModalOpen(true)}
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add Member
+              </Button>
+              <Button variant="outline" className="border-purple-600 text-purple-600 hover:bg-purple-50 bg-transparent">
+                <QrCode className="h-4 w-4 mr-2" />
+                Generate Token
+              </Button>
+            </>
+          )}
+          {!eventId && (
+            <div className="text-sm text-gray-600">
+              Select an event to manage members
+            </div>
+          )}
         </div>
 
         {/* Charts Section */}
@@ -498,45 +473,65 @@ export default function Dashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {attendanceList.map((student) => (
-                  <TableRow key={student.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarFallback className="bg-purple-500 text-white">{student.initials}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium">{student.name}</div>
-                          <div className="text-sm text-muted-foreground">{student.email}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">{student.studentId}</TableCell>
-                    <TableCell>{student.class}</TableCell>
-                    <TableCell>{student.checkIn}</TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          student.status === "On Time"
-                            ? "bg-emerald-500 hover:bg-emerald-600"
-                            : student.status === "Late"
-                              ? "bg-amber-500 hover:bg-amber-600"
-                              : "bg-red-500 hover:bg-red-600"
-                        }
-                      >
-                        {student.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {student.faceMatch > 0 ? `${student.faceMatch}%` : "—"}
+                {loadingMembers ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                      Loading members...
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : members.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                      {eventId ? "No members added yet. Click 'Add Member' to get started." : "Select an event to view members."}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  members.map((member) => (
+                    <TableRow key={member.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar>
+                            <AvatarFallback className="bg-purple-500 text-white">
+                              {getInitials(member.first_name, member.last_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium">
+                              {member.first_name} {member.last_name}
+                            </div>
+                            <div className="text-sm text-muted-foreground">{member.email}</div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {formatStudentId(member.id)}
+                      </TableCell>
+                      <TableCell>—</TableCell>
+                      <TableCell>—</TableCell>
+                      <TableCell>
+                        <Badge className="bg-gray-500 hover:bg-gray-600">
+                          Not Checked In
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">—</TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
       </main>
+
+      {/* Add Member Modal */}
+      {eventId && (
+        <AddMemberModal
+          isOpen={isAddMemberModalOpen}
+          onClose={() => setIsAddMemberModalOpen(false)}
+          eventId={eventId}
+          onMemberAdded={handleMemberAdded}
+        />
+      )}
     </div>
   )
 }

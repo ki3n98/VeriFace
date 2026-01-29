@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { X, Upload, Image as ImageIcon } from "lucide-react"
+import { apiClient } from "@/lib/api"
 
 interface CreateEventModalProps {
   isOpen: boolean
@@ -13,6 +14,7 @@ interface CreateEventModalProps {
     location?: string
     participantCount?: number
     description?: string
+    csvFile?: File | null
   }) => void
 }
 
@@ -24,16 +26,59 @@ export function CreateEventModal({ isOpen, onClose, onSubmit }: CreateEventModal
     description: "",
     inviteLink: "https://invited-to-event",
   })
+  const [csvFile, setCsvFile] = useState<File | null>(null)
+  const [isUploadingCSV, setIsUploadingCSV] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (!isOpen) return null
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        alert('Please select a CSV file')
+        return
+      }
+      setCsvFile(file)
+    }
+  }
+
+  const handleCSVUpload = async (eventId: number) => {
+    if (!csvFile) return
+
+    setIsUploadingCSV(true)
+    try {
+      const response = await apiClient.uploadCSV(eventId, csvFile)
+      if (response.error) {
+        alert(`Failed to upload CSV: ${response.error}`)
+      } else {
+        const data = response.data
+        if (data.success) {
+          alert(`Successfully added ${data.total_rows} members to the event!`)
+        } else {
+          alert(`CSV upload completed with errors. ${data.message}`)
+        }
+        setCsvFile(null)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading CSV:', error)
+      alert('Failed to upload CSV. Please try again.')
+    } finally {
+      setIsUploadingCSV(false)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.name.trim()) {
       alert("Please enter an event name")
       return
     }
 
+    // Create event first, CSV upload will be handled in parent component
     onSubmit({
       name: formData.name,
       location: formData.location || undefined,
@@ -41,6 +86,7 @@ export function CreateEventModal({ isOpen, onClose, onSubmit }: CreateEventModal
         ? parseInt(formData.participantCount)
         : undefined,
       description: formData.description || undefined,
+      csvFile: csvFile,
     })
 
     // Reset form
@@ -51,6 +97,10 @@ export function CreateEventModal({ isOpen, onClose, onSubmit }: CreateEventModal
       description: "",
       inviteLink: "https://invited-to-event",
     })
+    setCsvFile(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
   }
 
   return (
@@ -165,18 +215,32 @@ export function CreateEventModal({ isOpen, onClose, onSubmit }: CreateEventModal
                 </div>
 
                 <div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="csv-upload"
+                  />
                   <Button
                     type="button"
                     variant="outline"
                     className="w-full border-purple-600 text-purple-600 hover:bg-purple-50"
-                    disabled
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingCSV}
                   >
                     <Upload className="h-4 w-4 mr-2" />
-                    Upload members.csv (Coming Soon)
+                    {csvFile ? csvFile.name : "Upload members.csv"}
                   </Button>
                   <p className="text-xs text-gray-500 mt-1">
-                    Optional: Upload a list of members&apos; names and emails
+                    Optional: Upload a list of members&apos; names and emails (CSV format: first_name, last_name, email)
                   </p>
+                  {csvFile && (
+                    <p className="text-xs text-green-600 mt-1">
+                      File selected: {csvFile.name}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

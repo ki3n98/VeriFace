@@ -9,6 +9,15 @@ import { CreateEventModal } from "./components/CreateEventModal"
 import { useEvents } from "@/lib/hooks/useEvents"
 import { apiClient } from "@/lib/api"
 
+interface EventCreateResponse {
+  id: number
+  event_name: string
+  user_id: number
+  start_date?: string | null
+  end_date?: string | null
+  location?: string | null
+}
+
 export default function EventsPage() {
   const router = useRouter()
   const { events, loading, error, refetch } = useEvents()
@@ -24,9 +33,10 @@ export default function EventsPage() {
     location?: string
     participantCount?: number
     description?: string
+    csvFile?: File | null
   }) => {
     try {
-      const response = await apiClient.post('/protected/event/createEvent', {
+      const response = await apiClient.post<EventCreateResponse>('/protected/event/createEvent', {
         event_name: eventData.name,
         location: eventData.location,
         start_date: null, // You can add date pickers later
@@ -36,6 +46,32 @@ export default function EventsPage() {
       if (response.error) {
         alert(`Failed to create event: ${response.error}`)
         return
+      }
+
+      const eventId = response.data?.id
+      if (!eventId) {
+        alert('Event created but could not get event ID')
+        return
+      }
+
+      // Upload CSV if provided
+      if (eventData.csvFile && eventId) {
+        try {
+          const csvResponse = await apiClient.uploadCSV(eventId, eventData.csvFile)
+          if (csvResponse.error) {
+            alert(`Event created successfully, but CSV upload failed: ${csvResponse.error}`)
+          } else {
+            const csvData = csvResponse.data
+            if (csvData.success) {
+              alert(`Event created and ${csvData.total_rows} members added successfully!`)
+            } else {
+              alert(`Event created, but CSV upload had errors: ${csvData.message}`)
+            }
+          }
+        } catch (csvError) {
+          console.error('Error uploading CSV:', csvError)
+          alert('Event created successfully, but CSV upload failed. You can upload it later.')
+        }
       }
 
       // Refresh events list (if this fails, still close modal since event was created)
