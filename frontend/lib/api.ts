@@ -6,6 +6,13 @@ interface ApiResponse<T> {
   detail?: string
 }
 
+interface AddMemberResponse {
+  success: boolean
+  message: string
+  user_id: number
+  is_new_user?: boolean
+}
+
 class ApiClient {
   private baseURL: string
 
@@ -125,6 +132,57 @@ class ApiClient {
         email: string
       }
     }>('/protected/testToken')
+  }
+
+  async uploadCSV(eventId: number, file: File) {
+    const token = this.getAuthToken()
+    if (!token) {
+      return { error: 'Not authenticated' }
+    }
+
+    const formData = new FormData()
+    formData.append('csv_file', file)
+
+    try {
+      const url = `${this.baseURL}/protected/event/${eventId}/uploadUserCSV`
+      console.log(`[API] POST ${url}`)
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        return { error: data.detail || data.message || 'Failed to upload CSV' }
+      }
+
+      return { data }
+    } catch (error) {
+      console.error(`[API] CSV upload failed:`, error)
+      return { error: error instanceof Error ? error.message : 'Network error' }
+    }
+  }
+
+  async addMember(eventId: number, memberData: {
+    first_name: string
+    last_name: string
+    email: string
+  }) {
+    return this.post<AddMemberResponse>(`/protected/event/${eventId}/addMember`, memberData)
+  }
+
+  async getEventUsers(eventId: number) {
+    return this.post<Array<{
+      id: number
+      first_name: string
+      last_name: string
+      email: string
+    }>>('/protected/event/getUsers', { id: eventId })
   }
 }
 

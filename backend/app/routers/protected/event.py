@@ -5,10 +5,12 @@ from app.util.permission import check_permission
 from app.util.csv_processor import validate_csv_file, parse_and_validate_csv
 from app.db.schema.user import UserOutput
 from app.db.schema.event import EventInCreate, EventToRemove, EventId, EventOutput
-from app.db.schema.EventUser import EventUserCreate, EventUserRemove
+from app.db.schema.EventUser import EventUserCreate, EventUserRemove, MemberAddRequest
 from app.db.schema.csv import CSVUploadSuccess, CSVUploadFailure, CSVRowError
 from app.service.eventService import EventService
 from app.service.eventUserService import EventUserService
+from app.service.userService import UserService
+from app.db.schema.user import UserInCreate
 
 from sqlalchemy.orm import Session
 from typing import List, Union
@@ -221,4 +223,82 @@ async def upload_users_csv(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to process CSV upload: {str(error)}"
+        )
+
+
+@eventRouter.post("/{event_id}/addMember")
+async def add_single_member(
+    event_id: int,
+    member_data: MemberAddRequest,
+    user: UserOutput = Depends(get_current_user),
+    session: Session = Depends(get_db)
+) -> dict:
+    """Add a single member to an event. Creates user if they don't exist."""
+    try:
+        if not check_permission(user_id=user.id, event_id=event_id, session=session):
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to add users to that event"
+            )
+        
+        # Extract and validate fields
+        first_name = member_data.first_name.strip()
+        last_name = member_data.last_name.strip()
+        email = member_data.email.strip()
+        
+        if not first_name:
+            raise HTTPException(status_code=400, detail="First name is required")
+        if not last_name:
+            raise HTTPException(status_code=400, detail="Last name is required")
+        
+        # Use EventUserService to add member (handles user creation if needed)
+        event_user_service = EventUserService(session=session)
+        user_service = UserService(session=session)
+        
+        # Check if member user exists
+        member_user = None
+        is_new_user = False
+        try:
+            member_user = user_service.get_user_by_email(user_email=email)
+        except HTTPException:
+            # User doesn't exist, create them
+            is_new_user = True
+            from app.util.csv_processor import generate_random_password
+            temp_password = generate_random_password()
+            user_data = UserInCreate(
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                password=temp_password
+            )
+            member_user = user_service.signup(user_details=user_data)
+        
+        # Check if user is already in event
+        existing_users = event_user_service.get_users(event_id=event_id)
+        existing_users_ids = [u.id for u in existing_users]
+        if member_user.id in existing_users_ids:
+            return {
+                "success": False,
+                "message": "User is already a member of this event",
+                "user_id": member_user.id
+            }
+        
+        # Add user to event
+        relationship = EventUserCreate(user_id=member_user.id, event_id=event_id)
+        event_user_service.add_relationship(event_user=relationship)
+        
+        return {
+            "success": True,
+            "message": f"Successfully added {'new' if is_new_user else 'existing'} user to event",
+            "user_id": member_user.id,
+            "is_new_user": is_new_user
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as error:
+        print(error)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to add member: {str(error)}"
         )

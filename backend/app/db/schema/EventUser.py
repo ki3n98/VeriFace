@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Union
 
 class EventUserCreate(BaseModel):
@@ -8,3 +8,8 @@ class EventUserCreate(BaseModel):
 class EventUserRemove(BaseModel):
     user_id:int
     event_id: int
+
+class MemberAddRequest(BaseModel):
+    first_name: str
+    last_name: str
+    email: EmailStr
