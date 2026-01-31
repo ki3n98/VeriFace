@@ -25,7 +25,7 @@ export default function SignInPage() {
 
       // Token is already saved by apiClient.login()
       // Redirect to events page
-      router.push("/events");
+      router.push("/picture");
     } catch (error) {
       setError("Login failed. Please try again.");
       console.error(error);

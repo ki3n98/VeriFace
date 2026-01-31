@@ -1,21 +1,27 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api";
-import styles from "../sign-in/sign-in.module.css"; // reuse same styling
+import styles from "../sign-in/sign-in.module.css";
 
 export default function SignUpPage() {
+  const router = useRouter();
+
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
+    setError(null);
+    setSuccess(false);
+    setIsSubmitting(true);
 
     try {
       const response = await apiClient.signup({
@@ -23,24 +29,26 @@ export default function SignUpPage() {
         last_name: lastName,
         email,
         password,
-        embedding: [],
+        embedding: [], // placeholder, generated later
       });
 
-      if (response.error) {
+      if (response?.error) {
         setError(response.error);
         return;
       }
 
-      // Success message
-      setSuccess("Success! Please log in.");
+      // ✅ Signup succeeded
+      setSuccess(true);
 
-      // Delay redirect so user sees the success alert
+      // Small delay so the user sees success feedback
       setTimeout(() => {
-        window.location.href = "/sign-in";
-      }, 2500);
+        router.push("/sign-in");
+      }, 1200);
     } catch (err) {
       console.error(err);
       setError("Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -52,67 +60,81 @@ export default function SignUpPage() {
         <h1 className={styles.title}>Sign Up</h1>
 
         {error && <p className={styles.error}>{error}</p>}
-        {success && <p className={styles.success}>{success}</p>}
 
-        {!success && (
-          <form onSubmit={handleSubmit} className={styles.form}>
-            <label className={styles.label}>
-              First Name
-              <input
-                className={styles.input}
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                required
-              />
-            </label>
-
-            <label className={styles.label}>
-              Last Name
-              <input
-                className={styles.input}
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                required
-              />
-            </label>
-
-            <label className={styles.label}>
-              Email
-              <input
-                className={styles.input}
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </label>
-
-            <label className={styles.label}>
-              Password
-              <input
-                className={styles.input}
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </label>
-
-            <button className={styles.button} type="submit">
-              Create Account
-            </button>
-
-            {/* 👇 NEW: Sign-in link */}
-            <p className={styles.linkText}>
-              Already have an account?{" "}
-              <a href="/sign-in" className={styles.link}>
-                Sign in here
-              </a>
-            </p>
-          </form>
+        {success && (
+          <p style={{ color: "#2e7d32", marginBottom: 12 }}>
+            Account created successfully! Redirecting to sign in…
+          </p>
         )}
+
+        <form onSubmit={handleSubmit} className={styles.form}>
+          <label className={styles.label}>
+            First Name
+            <input
+              className={styles.input}
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              required
+              disabled={isSubmitting}
+            />
+          </label>
+
+          <label className={styles.label}>
+            Last Name
+            <input
+              className={styles.input}
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              required
+              disabled={isSubmitting}
+            />
+          </label>
+
+          <label className={styles.label}>
+            Email
+            <input
+              className={styles.input}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={isSubmitting}
+            />
+          </label>
+
+          <label className={styles.label}>
+            Password
+            <input
+              className={styles.input}
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={isSubmitting}
+            />
+          </label>
+
+          <button
+            className={styles.button}
+            type="submit"
+            disabled={isSubmitting}
+            style={{
+              opacity: isSubmitting ? 0.6 : 1,
+              cursor: isSubmitting ? "not-allowed" : "pointer",
+            }}
+          >
+            {isSubmitting ? "Creating account…" : "Create Account"}
+          </button>
+
+          <p className={styles.linkText}>
+            Already have an account?{" "}
+            <a href="/sign-in" className={styles.link}>
+              Sign in here
+            </a>
+          </p>
+        </form>
       </div>
     </div>
   );
