@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: oklch(0.98 0.01 264);
-  --foreground: oklch(0.2 0.02 264);
+  --background: rgb(121, 56, 195);
+  --foreground: oklch(100% 0.00011 271.152);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.2 0.02 264);
   --popover: oklch(1 0 0);
@@ -37,8 +37,8 @@
 }
 
 .dark {
-  --background: oklch(0.15 0.02 264);
-  --foreground: oklch(0.95 0.01 264);
+  --background: rgb(121, 56, 195);
+  --foreground: oklch(0% 0 0);
   --card: oklch(0.18 0.02 264);
   --card-foreground: oklch(0.95 0.01 264);
   --popover: oklch(0.18 0.02 264);

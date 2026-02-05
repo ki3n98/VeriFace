@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api";
 import styles from "./sign-in.module.css";
+import Link from "next/link";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
@@ -34,7 +35,9 @@ export default function SignInPage() {
 
   return (
     <div className={styles.pageWrapper}>
-      <img src="/logo.png" className={styles.logo} alt="Logo" />
+      <Link href="/" className={styles.logoLink}>
+        <img src="/logo.png" className={styles.logo} alt="Logo" />
+      </Link>
 
       <div className={styles.card}>
         <h1 className={styles.title}>Sign In</h1>
@@ -68,6 +71,12 @@ export default function SignInPage() {
             Sign In
           </button>
         </form>
+        <p className={styles.linkText}>
+          Don't have an account?{" "}
+          <Link href="/sign-up" className={styles.link}>
+            Sign Up
+          </Link>
+        </p>
       </div>
     </div>
   );

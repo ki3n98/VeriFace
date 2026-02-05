@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api";
 import styles from "../sign-in/sign-in.module.css";
+import Link from "next/link";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -54,7 +55,9 @@ export default function SignUpPage() {
 
   return (
     <div className={styles.pageWrapper}>
-      <img src="/logo.png" className={styles.logo} alt="Logo" />
+      <Link href="/" className={styles.logoLink}>
+        <img src="/logo.png" className={styles.logo} alt="Logo" />
+      </Link>
 
       <div className={styles.card}>
         <h1 className={styles.title}>Sign Up</h1>

@@ -2,7 +2,7 @@ export default function Home() {
   return (
     <>
       {/* Navigation */}
-      <nav className="sticky top-0 z-50 w-full flex items-center justify-center px-6 py-4 bg-slate-900/50 backdrop-blur-md border-b border-white/10">
+      <nav className="sticky top-0 z-50 w-full flex items-center justify-center px-6 py-4 bg-transparent backdrop-blur-md">
         <div className="flex items-center justify-between w-full max-w-7xl">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="VeriFace Logo" className="h-14 w-auto" />
@@ -10,10 +10,10 @@ export default function Home() {
           </div>
           <div className="space-x-4">
             <a
-              href="/sign-up"
-              className="inline-block px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition"
+              href="/sign-in"
+              className="inline-block px-6 py-2 bg-white hover:bg-purple-600 hover:text-white text-purple-900 rounded-lg transition"
             >
-              Sign-Up
+              Sign-In
             </a>
           </div>
         </div>
