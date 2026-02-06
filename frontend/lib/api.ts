@@ -1,190 +1,233 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:80'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:80";
 
 interface ApiResponse<T> {
-  data?: T
-  error?: string
-  detail?: string
+  data?: T;
+  error?: string;
+  detail?: string;
 }
 
 interface AddMemberResponse {
-  success: boolean
-  message: string
-  user_id: number
-  is_new_user?: boolean
+  success: boolean;
+  message: string;
+  user_id: number;
+  is_new_user?: boolean;
 }
 
 class ApiClient {
-  private baseURL: string
+  private baseURL: string;
 
   constructor(baseURL: string) {
-    this.baseURL = baseURL
+    this.baseURL = baseURL;
   }
 
   private getAuthToken(): string | null {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('token')
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("token");
     }
-    return null
+    return null;
   }
 
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
-    const token = this.getAuthToken()
-    
+    const token = this.getAuthToken();
+
+    // ✅ Detect FormData (so we don't force JSON headers/body)
+    const isFormData =
+      typeof FormData !== "undefined" && options.body instanceof FormData;
+
+    // Start from caller headers (if any)
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'accept': 'application/json',
+      accept: "application/json",
       ...(options.headers as Record<string, string>),
+    };
+
+    // ✅ Only set JSON content-type when NOT FormData and when caller didn't already set it
+    if (!isFormData && !headers["Content-Type"]) {
+      headers["Content-Type"] = "application/json";
     }
 
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`
+      headers["Authorization"] = `Bearer ${token}`;
     }
 
     try {
-      const url = `${this.baseURL}${endpoint}`
-      console.log(`[API] ${options.method || 'GET'} ${url}`)
-      
+      const url = `${this.baseURL}${endpoint}`;
+      console.log(`[API] ${options.method || "GET"} ${url}`);
+
       const response = await fetch(url, {
         ...options,
         headers,
-      })
+      });
 
-      let data
-      const contentType = response.headers.get('content-type')
-      
-      // Handle both JSON and non-JSON responses
-      if (contentType && contentType.includes('application/json')) {
-        data = await response.json()
-      } else {
-        const text = await response.text()
+      // ✅ Read body once (prevents "body stream already read")
+      const raw = await response.text();
+
+      // Parse response (JSON if possible, otherwise treat as text)
+      let data: any = null;
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
         try {
-          data = JSON.parse(text)
+          data = raw ? JSON.parse(raw) : null;
         } catch {
-          data = { detail: text || 'An error occurred' }
+          data = raw;
+        }
+      } else {
+        // sometimes FastAPI returns plain text
+        try {
+          data = raw ? JSON.parse(raw) : null;
+        } catch {
+          data = { detail: raw || "An error occurred" };
         }
       }
 
       if (!response.ok) {
-        return { error: data.detail || data.message || 'An error occurred' }
+        // FastAPI often returns {detail:[{msg,...}]} for validation errors
+        const detail = data?.detail;
+        const message =
+          (Array.isArray(detail) ? detail?.[0]?.msg : detail) ||
+          data?.message ||
+          data?.error ||
+          "An error occurred";
+
+        return { error: message };
       }
 
-      return { data }
+      return { data };
     } catch (error) {
-      // Provide more specific error messages
-      console.error(`[API] Request failed:`, error)
-      if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        return { error: `Failed to connect to server at ${this.baseURL}. Please check if the backend is running on the correct port.` }
+      console.error(`[API] Request failed:`, error);
+      if (error instanceof TypeError && error.message === "Failed to fetch") {
+        return {
+          error: `Failed to connect to server at ${this.baseURL}. Please check if the backend is running and NEXT_PUBLIC_API_URL is correct.`,
+        };
       }
-      return { error: error instanceof Error ? error.message : 'Network error' }
+      return { error: error instanceof Error ? error.message : "Network error" };
     }
   }
 
   async get<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: 'GET' })
+    return this.request<T>(endpoint, { method: "GET" });
   }
 
+  // ✅ UPDATED: post supports JSON objects OR FormData
   async post<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
+    const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+
     return this.request<T>(endpoint, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    })
+      method: "POST",
+      // ✅ If FormData, send as-is. If object, JSON stringify.
+      body: isFormData ? (body as FormData) : body != null ? JSON.stringify(body) : undefined,
+      // ✅ If FormData, DO NOT set Content-Type; browser sets boundary.
+      headers: isFormData ? { accept: "application/json" } : undefined,
+    });
   }
 
   // Auth methods
   async login(email: string, password: string) {
-    const response = await this.post<{ token: string }>('/auth/login', {
+    const response = await this.post<{ token: string }>("/auth/login", {
       email,
       password,
-    })
-    
-    if (response.data?.token && typeof window !== 'undefined') {
-      localStorage.setItem('token', response.data.token)
+    });
+
+    if (response.data?.token && typeof window !== "undefined") {
+      localStorage.setItem("token", response.data.token);
     }
-    
-    return response
+
+    return response;
   }
 
   async signup(userData: {
-    first_name: string
-    last_name: string
-    email: string
-    password: string
-    embedding?: number[]
+    first_name: string;
+    last_name: string;
+    email: string;
+    password: string;
+    embedding?: number[];
   }) {
-    return this.post('/auth/signup', userData)
+    return this.post("/auth/signup", userData);
   }
 
   logout() {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token')
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("token");
     }
   }
 
   async getCurrentUser() {
     return this.get<{
       data: {
-        id: number
-        first_name: string
-        last_name: string
-        email: string
-      }
-    }>('/protected/testToken')
+        id: number;
+        first_name: string;
+        last_name: string;
+        email: string;
+      };
+    }>("/protected/testToken");
   }
 
   async uploadCSV(eventId: number, file: File) {
-    const token = this.getAuthToken()
+    const token = this.getAuthToken();
     if (!token) {
-      return { error: 'Not authenticated' }
+      return { error: "Not authenticated" };
     }
 
-    const formData = new FormData()
-    formData.append('csv_file', file)
+    const formData = new FormData();
+    formData.append("csv_file", file);
 
     try {
-      const url = `${this.baseURL}/protected/event/${eventId}/uploadUserCSV`
-      console.log(`[API] POST ${url}`)
-      
+      const url = `${this.baseURL}/protected/event/${eventId}/uploadUserCSV`;
+      console.log(`[API] POST ${url}`);
+
       const response = await fetch(url, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: formData,
-      })
+      });
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        return { error: data.detail || data.message || 'Failed to upload CSV' }
+      const raw = await response.text();
+      let data: any = null;
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        data = { detail: raw };
       }
 
-      return { data }
+      if (!response.ok) {
+        return { error: data.detail || data.message || "Failed to upload CSV" };
+      }
+
+      return { data };
     } catch (error) {
-      console.error(`[API] CSV upload failed:`, error)
-      return { error: error instanceof Error ? error.message : 'Network error' }
+      console.error(`[API] CSV upload failed:`, error);
+      return { error: error instanceof Error ? error.message : "Network error" };
     }
   }
 
-  async addMember(eventId: number, memberData: {
-    first_name: string
-    last_name: string
-    email: string
-  }) {
-    return this.post<AddMemberResponse>(`/protected/event/${eventId}/addMember`, memberData)
+  async addMember(
+    eventId: number,
+    memberData: {
+      first_name: string;
+      last_name: string;
+      email: string;
+    }
+  ) {
+    return this.post<AddMemberResponse>(
+      `/protected/event/${eventId}/addMember`,
+      memberData
+    );
   }
 
   async getEventUsers(eventId: number) {
-    return this.post<Array<{
-      id: number
-      first_name: string
-      last_name: string
-      email: string
-    }>>('/protected/event/getUsers', { id: eventId })
+    return this.post<
+      Array<{
+        id: number;
+        first_name: string;
+        last_name: string;
+        email: string;
+      }>
+    >("/protected/event/getUsers", { id: eventId });
   }
 }
 
-export const apiClient = new ApiClient(API_BASE_URL)
-
+export const apiClient = new ApiClient(API_BASE_URL);
