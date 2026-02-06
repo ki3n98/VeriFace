@@ -13,3 +13,9 @@ class MemberAddRequest(BaseModel):
     first_name: str
     last_name: str
     email: EmailStr
+
+
+class MemberRemoveRequest(BaseModel):
+    first_name: str
+    last_name: str
+    email: EmailStr
