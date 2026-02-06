@@ -1,18 +1,23 @@
-from keras_facenet import FaceNet
 import numpy as np
+import torch
+from facenet_pytorch import MTCNN, InceptionResnetV1
+import torch.nn.functional as F
 
 
 class ModelService:
     def __init__(self):
-        self.embedder = FaceNet()
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.embedder = InceptionResnetV1(pretrained='vggface2').eval().to(self.device)
+        self.mtcnn = MTCNN(image_size=160, margin =20, keep_all= False, device=self.device)
 
 
-    def img_to_embedding(self, img: np.ndarray):
-        results = self.embedder.extract(img)
+    def img_to_embedding(self, img):
+        face = self.mtcnn(img)
+        with torch.no_grad():
+            emb = self.embedder(face.unsqueeze(0).to(self.device))
+            emb = torch.nn.functional.normalize(emb,p=2,dim =1)
 
-        embeddings = [result["embedding"] for result in results]
-
-        return embeddings
+        return emb
 
 
     def __cosine_distance(self, a, b):
