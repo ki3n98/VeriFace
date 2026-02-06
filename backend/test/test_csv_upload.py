@@ -877,6 +877,31 @@ def integration_get_event_users(token: str, event_id: int) -> List[Dict[str, Any
     return response.json()
 
 
+def integration_remove_all_event_users(token: str, event_id: int):
+    """
+    Remove all EventUser relationships for an event.
+    Must be called before deleting an event to avoid FK constraint errors.
+
+    Args:
+        token: JWT authentication token
+        event_id: Event ID to clean up
+    """
+    try:
+        users = integration_get_event_users(token, event_id)
+        for user in users:
+            url = f"{BASE_URL}/protected/event/{event_id}/removeMember"
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+            response = requests.post(url, params={"member_id": user["id"]}, headers=headers)
+            # Don't raise on error - user might already be removed
+            if response.status_code not in [200, 404]:
+                print(f"Warning: Failed to remove user {user['id']} from event {event_id}")
+    except Exception as e:
+        print(f"Warning: Failed to clean up event users for event {event_id}: {e}")
+
+
 # ============================================================================
 # Integration Test Class
 # ============================================================================
@@ -904,7 +929,8 @@ class TestCSVUploadEndpoint:
         """Create a test event for each test and clean up after."""
         event_id = integration_create_event(auth_token)
         yield event_id
-        # Cleanup
+        # Cleanup: Remove all EventUser relationships first, then delete event
+        integration_remove_all_event_users(auth_token, event_id)
         integration_delete_event(auth_token, event_id)
     
     # ========================================================================

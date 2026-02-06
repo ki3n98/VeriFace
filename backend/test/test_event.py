@@ -159,19 +159,15 @@ class TestRemoveEvent:
         auth_headers
     ):
         """Test owner successfully removes their event."""
-        payload = {
-            "event_id": test_event.id
-        }
-        
         response = client.post(
             "/protected/event/removeEvent",
-            json=payload,
+            json={"event_id": test_event.id},
             headers=auth_headers
         )
-        
+
         assert response.status_code == 200
         assert "removed" in response.text.lower()
-    
+
     def test_remove_event_not_owner(
         self,
         client: TestClient,
@@ -179,46 +175,131 @@ class TestRemoveEvent:
         second_auth_headers
     ):
         """Test non-owner cannot remove event."""
-        payload = {
-            "event_id": test_event.id
-        }
-        
         response = client.post(
             "/protected/event/removeEvent",
-            json=payload,
+            json={"event_id": test_event.id},
             headers=second_auth_headers
         )
-        
-        assert response.status_code == 403
+
+        assert response.status_code == 401
         data = response.json()
-        assert_error_response(data, expected_detail="owner")
-    
+        assert_error_response(data, expected_detail="permission")
+
     def test_remove_nonexistent_event(self, client: TestClient, auth_headers):
         """Test removing event that doesn't exist."""
-        payload = {
-            "event_id": 99999
-        }
-        
         response = client.post(
             "/protected/event/removeEvent",
-            json=payload,
+            json={"event_id": 99999},
             headers=auth_headers
         )
-        
-        # Should succeed (idempotent delete)
-        assert response.status_code == 200
-    
+
+        # Should fail permission check (no permission for nonexistent event)
+        assert response.status_code == 401
+
     def test_remove_event_no_authentication(self, client: TestClient, test_event):
         """Test removing event without authentication."""
-        payload = {
-            "event_id": test_event.id
-        }
-        
-        response = client.post("/protected/event/removeEvent", json=payload)
-        
+        response = client.post(
+            "/protected/event/removeEvent",
+            json={"event_id": test_event.id}
+        )
+
         assert response.status_code == 401
         data = response.json()
         assert_error_response(data)
+
+    def test_remove_event_cascade_deletes_related_data(
+        self,
+        client: TestClient,
+        test_user,
+        test_db,
+        auth_headers
+    ):
+        """
+        Test that removing an event cascades to delete:
+        - All Attendance records for sessions in that event
+        - All Session records for the event
+        - All EventUser relationships for the event
+        """
+        from app.db.models.event import Event
+        from app.db.models.event_user import EventUser
+        from app.db.models.session import Session as SessionModel
+        from app.db.models.attendance import Attendance, AttendanceStatus
+        from datetime import datetime, timedelta, timezone
+
+        # 1. Create an event
+        event = Event(
+            event_name="Cascade Test Event",
+            user_id=test_user.id,
+            start_date=datetime.now(timezone.utc),
+            end_date=datetime.now(timezone.utc) + timedelta(hours=2),
+            location="Test Location"
+        )
+        test_db.add(event)
+        test_db.commit()
+        test_db.refresh(event)
+        event_id = event.id
+
+        # 2. Create EventUser relationship (owner)
+        event_user = EventUser(user_id=test_user.id, event_id=event_id)
+        test_db.add(event_user)
+        test_db.commit()
+
+        # 3. Create sessions for the event
+        session1 = SessionModel(event_id=event_id, sequence_number=1)
+        session2 = SessionModel(event_id=event_id, sequence_number=2)
+        test_db.add(session1)
+        test_db.add(session2)
+        test_db.commit()
+        test_db.refresh(session1)
+        test_db.refresh(session2)
+        session1_id = session1.id
+        session2_id = session2.id
+
+        # 4. Create attendance records for sessions
+        att1 = Attendance(
+            user_id=test_user.id,
+            session_id=session1_id,
+            status=AttendanceStatus.PRESENT
+        )
+        att2 = Attendance(
+            user_id=test_user.id,
+            session_id=session2_id,
+            status=AttendanceStatus.ABSENT
+        )
+        test_db.add(att1)
+        test_db.add(att2)
+        test_db.commit()
+
+        # Verify data exists before deletion
+        assert test_db.query(Event).filter_by(id=event_id).first() is not None
+        assert test_db.query(EventUser).filter_by(event_id=event_id).count() == 1
+        assert test_db.query(SessionModel).filter_by(event_id=event_id).count() == 2
+        assert test_db.query(Attendance).filter_by(session_id=session1_id).count() == 1
+        assert test_db.query(Attendance).filter_by(session_id=session2_id).count() == 1
+
+        # 5. Remove the event via API
+        response = client.post(
+            "/protected/event/removeEvent",
+            json={"event_id": event_id},
+            headers=auth_headers
+        )
+
+        assert response.status_code == 200
+
+        # 6. Verify cascade delete - all related data should be gone
+        # Need to expire cache to see DB changes
+        test_db.expire_all()
+
+        assert test_db.query(Event).filter_by(id=event_id).first() is None, \
+            "Event should be deleted"
+        assert test_db.query(EventUser).filter_by(event_id=event_id).count() == 0, \
+            "EventUser relationships should be deleted"
+        assert test_db.query(SessionModel).filter_by(event_id=event_id).count() == 0, \
+            "Sessions should be deleted"
+        assert test_db.query(Attendance).filter_by(session_id=session1_id).count() == 0, \
+            "Attendance records for session1 should be deleted"
+        assert test_db.query(Attendance).filter_by(session_id=session2_id).count() == 0, \
+            "Attendance records for session2 should be deleted"
 
 
 # ============================================================================
@@ -532,8 +613,144 @@ class TestGetEvents:
             "/protected/event/getEventsFromUser",
             headers=second_auth_headers
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
         assert len(data) == 0
+
+
+# ============================================================================
+# Remove Member Tests
+# ============================================================================
+
+@pytest.mark.event
+@pytest.mark.integration
+class TestRemoveMember:
+    """Tests for POST /protected/event/{event_id}/removeMember endpoint."""
+
+    def test_remove_member_success(
+        self,
+        client: TestClient,
+        test_event_with_relationship,
+        test_user,
+        second_test_user,
+        auth_headers,
+        test_db
+    ):
+        """Test successfully removing a member from event."""
+        from app.db.models.event_user import EventUser
+
+        # Add second_test_user to the event
+        relationship = EventUser(
+            user_id=second_test_user.id,
+            event_id=test_event_with_relationship.id
+        )
+        test_db.add(relationship)
+        test_db.commit()
+
+        response = client.post(
+            f"/protected/event/{test_event_with_relationship.id}/removeMember",
+            params={"member_id": second_test_user.id},
+            headers=auth_headers
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "removed" in str(data).lower() or data.get("success", False) or "success" in str(data).lower()
+
+    def test_remove_member_no_permission(
+        self,
+        client: TestClient,
+        test_event_with_relationship,
+        test_user,
+        second_test_user,
+        second_auth_headers,
+        test_db
+    ):
+        """Test removing member without event permission."""
+        from app.db.models.event_user import EventUser
+
+        # Add second_test_user to the event (but they're not the owner)
+        relationship = EventUser(
+            user_id=second_test_user.id,
+            event_id=test_event_with_relationship.id
+        )
+        test_db.add(relationship)
+        test_db.commit()
+
+        response = client.post(
+            f"/protected/event/{test_event_with_relationship.id}/removeMember",
+            params={"member_id": test_user.id},
+            headers=second_auth_headers
+        )
+
+        assert response.status_code == 403
+        data = response.json()
+        assert_error_response(data, expected_detail="permission")
+
+    def test_remove_member_no_authentication(
+        self,
+        client: TestClient,
+        test_event_with_relationship,
+        test_user
+    ):
+        """Test removing member without authentication."""
+        response = client.post(
+            f"/protected/event/{test_event_with_relationship.id}/removeMember",
+            params={"member_id": test_user.id}
+        )
+
+        assert response.status_code == 401
+        data = response.json()
+        assert_error_response(data)
+
+    def test_remove_member_nonexistent_event(
+        self,
+        client: TestClient,
+        test_user,
+        auth_headers
+    ):
+        """Test removing member from nonexistent event."""
+        response = client.post(
+            "/protected/event/99999/removeMember",
+            params={"member_id": test_user.id},
+            headers=auth_headers
+        )
+
+        # Should fail permission check (no permission for nonexistent event)
+        assert response.status_code == 403
+
+    def test_remove_member_not_in_event(
+        self,
+        client: TestClient,
+        test_event_with_relationship,
+        second_test_user,
+        auth_headers
+    ):
+        """Test removing member who is not in the event."""
+        response = client.post(
+            f"/protected/event/{test_event_with_relationship.id}/removeMember",
+            params={"member_id": second_test_user.id},
+            headers=auth_headers
+        )
+
+        # Should handle gracefully (member not found or already removed)
+        assert response.status_code in [200, 404]
+
+    def test_remove_member_self(
+        self,
+        client: TestClient,
+        test_event_with_relationship,
+        test_user,
+        auth_headers
+    ):
+        """Test owner removing themselves from event."""
+        response = client.post(
+            f"/protected/event/{test_event_with_relationship.id}/removeMember",
+            params={"member_id": test_user.id},
+            headers=auth_headers
+        )
+
+        # Should succeed - owner can remove themselves
+        assert response.status_code == 200

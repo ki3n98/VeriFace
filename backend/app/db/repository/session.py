@@ -33,7 +33,7 @@ class SessionRepository(BaseRepository):
             self.session.query(func.max(SessionEvent.sequence_number))
             .filter(SessionEvent.event_id == event_id)
             .scalar()
-        )
+        ) 
 
         return (max_seq if max_seq else 0) + 1
     
@@ -50,3 +50,23 @@ class SessionRepository(BaseRepository):
 
         self.session.delete(session_obj)
         self.session.commit()
+
+
+    def get_session_by_event_id(self, event_id:int) -> list:
+        """Return all sessions for an event."""
+        return (
+            self.session.query(SessionEvent)
+            .filter(SessionEvent.event_id==event_id)
+            .all()
+        )
+    
+
+    def delete_by_event_id(self, event_id:int)->int:
+        """Delete all session of an event. Return number of deleted session."""
+        deleted = (
+            self.session.query(SessionEvent)
+            .filter(SessionEvent.event_id==event_id)
+            .delete()
+        )
+        self.session.commit()
+        return deleted

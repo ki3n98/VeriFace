@@ -114,3 +114,15 @@ class AttendanceRepository(BaseRepository):
         self.session.commit()
         self.session.refresh(att)
         return att
+    
+
+    def delete_by_session_id(self, session_id:int) -> int:
+        """Delete all attended records by session_id. Return counts deleted."""
+        deleted = (
+            self.session.query(Attendance)
+            .filter(Attendance.session_id == session_id)
+            .delete()
+        )
+        self.session.commit()
+        return deleted
+    

@@ -36,7 +36,7 @@ class EventUserService:
             raise error
         
     
-    def remove_relationship(self, event_user: EventUserRemove) -> EventUser:
+    def remove_relationship(self, event_user: EventUserRemove) -> str:
         try:
             self.__EventUserRepository.remove_relationship(event_user)
             return f"Relation of user ({event_user.user_id}) and  event ({event_user.event_id}) has been removed."

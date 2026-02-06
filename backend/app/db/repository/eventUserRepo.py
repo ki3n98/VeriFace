@@ -49,6 +49,17 @@ class EventUserRepository(BaseRepository):
             raise error
 
 
+    def delete_by_event_id(self, event_id:int)->int:
+        """Delete all event user relationship by event_id. Return number of deleted."""
+        deleted = (
+            self.session.query(EventUser)
+            .filter(EventUser.event_id==event_id)
+            .delete()
+        )
+        self.session.commit()
+        return deleted 
+    
+
     def get_users_from_event(self, event_id: int) -> List[UserOutput]:
         users = (
             self.session.query(User)

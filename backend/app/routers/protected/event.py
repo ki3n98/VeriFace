@@ -41,18 +41,28 @@ async def create_event(
 
 @eventRouter.post("/removeEvent")
 async def remove_event(
-    event_to_remove:EventToRemove,
+    event_to_remove: EventToRemove,
     user: UserOutput = Depends(get_current_user),
     session: Session = Depends(get_db),
-):
+) -> dict:
+    """Remove an event and all related data (sessions, attendance, members)."""
     event_to_remove.user_id = user.id
     try:
-        EventUserService(session=session).remove_relationship(
-            event_user=EventUserRemove(user_id=user.id, event_id=event_to_remove.event_id)
-        )
-        return EventService(session=session).remove_event(
-            event_to_remove = event_to_remove
-            )
+        if not check_permission(
+            user_id=user.id,
+            event_id=event_to_remove.event_id,
+            session=session
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Current user does not have permission to remove event.")
+
+        # Cascade delete handles: Attendance → Sessions → EventUsers → Event
+        EventService(session=session).remove_event(event_to_remove)
+        return {
+            "success": True,
+            "message": f"{user.first_name} removed event {event_to_remove.event_id} and all of its relationships."
+        }
     except Exception as error:
         print(error)
         raise error
@@ -313,19 +323,20 @@ async def remove_member(
     user: UserOutput = Depends(get_current_user),
     session: Session = Depends(get_db)
 ) -> dict:
-    """Add a single member to an event. Creates user if they don't exist."""
+    """Remove a member from an event"""
     try:
         if not check_permission(user_id=user.id, event_id=event_id, session=session):
             raise HTTPException(
                 status_code=403,
-                detail="You do not have permission to add users to that event"
+                detail="You do not have permission to remove users to that event"
             )
         
         event_user = EventUserRemove(user_id=member_id, event_id=event_id)
-        response = EventUserService(session=session).remove_relationship(event_user)
-        return response
-
-    
+        EventUserService(session=session).remove_relationship(event_user)
+        return {
+            "success": True,
+            "message": f"Member {member_id} remove from {event_id}"
+        }
     except HTTPException:
         raise
     except Exception as error:
