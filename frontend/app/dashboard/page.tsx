@@ -164,7 +164,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-background2">
       {/* Sidebar */}
       <aside
         className={`bg-purple-500 text-white flex flex-col transition-all duration-300 ${
@@ -287,7 +287,7 @@ export default function Dashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{summaryStats.present.count}</div>
+              <div className="text-3xl font-bold text-foreground2">{summaryStats.present.count}</div>
               <div className="text-sm text-muted-foreground">Out of {summaryStats.present.total} students</div>
               <div className="flex items-center gap-1 mt-2">
                 <TrendingUp className="h-3 w-3 text-emerald-500" />
@@ -304,7 +304,7 @@ export default function Dashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{summaryStats.late.count}</div>
+              <div className="text-3xl font-bold text-foreground2">{summaryStats.late.count}</div>
               <div className="text-sm text-muted-foreground">Students arrived late</div>
               <div className="flex items-center gap-1 mt-2">
                 <TrendingUp className="h-3 w-3 text-amber-500" />
@@ -321,7 +321,7 @@ export default function Dashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{summaryStats.absent.count}</div>
+              <div className="text-3xl font-bold text-foreground2">{summaryStats.absent.count}</div>
               <div className="text-sm text-muted-foreground">Not checked in yet</div>
               <div className="flex items-center gap-1 mt-2">
                 <TrendingDown className="h-3 w-3 text-emerald-500" />
@@ -338,7 +338,7 @@ export default function Dashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{summaryStats.total.count}</div>
+              <div className="text-3xl font-bold text-foreground2">{summaryStats.total.count}</div>
               <div className="text-sm text-muted-foreground">Registered students</div>
               <div className="flex items-center gap-1 mt-2">
                 <TrendingUp className="h-3 w-3 text-blue-500" />
@@ -366,7 +366,7 @@ export default function Dashboard() {
             </>
           )}
           {!eventId && (
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-muted-foreground">
               Select an event to manage members
             </div>
           )}
@@ -495,13 +495,13 @@ export default function Dashboard() {
               <TableBody>
                 {loadingMembers ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       Loading members...
                     </TableCell>
                   </TableRow>
                 ) : members.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       {eventId ? "No members added yet. Click 'Add Member' to get started." : "Select an event to view members."}
                     </TableCell>
                   </TableRow>
@@ -516,7 +516,7 @@ export default function Dashboard() {
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="font-medium">
+                            <div className="font-medium text-foreground2">
                               {member.first_name} {member.last_name}
                             </div>
                             <div className="text-sm text-muted-foreground">{member.email}</div>

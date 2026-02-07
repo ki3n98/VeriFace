@@ -228,6 +228,24 @@ class ApiClient {
       }>
     >("/protected/event/getUsers", { id: eventId });
   }
+
+  // User Settings
+  async getUserSettings() {
+    return this.get<{
+      user_id: number;
+      display_theme: string;
+    }>("/protected/settings/");
+  }
+
+  async updateUserSettings(theme: string) {
+    return this.request<{
+      user_id: number;
+      display_theme: string;
+    }>("/protected/settings/", {
+      method: "PATCH",
+      body: JSON.stringify({ display_theme: theme }),
+    });
+  }
 }
 
 export const apiClient = new ApiClient(API_BASE_URL);

@@ -116,16 +116,16 @@ export default function EventsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background2 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-xl text-gray-600">Loading events...</div>
+          <div className="text-xl text-muted-foreground">Loading events...</div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background2">
       {/* Header */}
       <header className="bg-purple-600 text-white shadow-md">
         <div className="container mx-auto px-6 py-4">
@@ -139,8 +139,8 @@ export default function EventsPage() {
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
         <div className="mb-8">
-          <h2 className="text-4xl font-bold text-gray-900 mb-2">Select Event</h2>
-          <p className="text-gray-600">
+          <h2 className="text-4xl font-bold text-foreground2 mb-2">Select Event</h2>
+          <p className="text-muted-foreground">
             After logging in, users see all classes or events they belong to. Users can select an
             existing event or create a new one.
           </p>
@@ -172,14 +172,14 @@ export default function EventsPage() {
                 </button>
 
                 {/* Event Image Placeholder */}
-                <div className="w-full h-48 bg-gray-200 rounded-lg mb-4 flex items-center justify-center">
-                  <ImageIcon className="h-16 w-16 text-gray-400" />
+                <div className="w-full h-48 bg-muted rounded-lg mb-4 flex items-center justify-center">
+                  <ImageIcon className="h-16 w-16 text-muted-foreground" />
                 </div>
 
                 {/* Event Info */}
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">{event.event_name}</h3>
+                <h3 className="text-xl font-semibold text-foreground2 mb-2">{event.event_name}</h3>
                 {event.location && (
-                  <p className="text-sm text-gray-600 mb-1">
+                  <p className="text-sm text-muted-foreground mb-1">
                     <span className="font-medium">Location:</span> {event.location}
                   </p>
                 )}
@@ -194,11 +194,11 @@ export default function EventsPage() {
           >
             <CardContent className="p-6 h-full flex flex-col items-center justify-center min-h-[300px]">
               <div className="text-center">
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-purple-100 rounded-full mb-4">
-                  <Plus className="h-10 w-10 text-purple-600" />
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-purple-100 dark:bg-purple-900/30 rounded-full mb-4">
+                  <Plus className="h-10 w-10 text-purple-600 dark:text-purple-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Create Class or Event</h3>
-                <p className="text-sm text-gray-600">Click to add a new event or class</p>
+                <h3 className="text-xl font-semibold text-foreground2 mb-2">Create Class or Event</h3>
+                <p className="text-sm text-muted-foreground">Click to add a new event or class</p>
               </div>
             </CardContent>
           </Card>
