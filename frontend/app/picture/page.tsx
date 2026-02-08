@@ -1,4 +1,3 @@
-// app/picture/page.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -14,18 +13,18 @@ type HasEmbeddingsResponse =
 
 function coerceHasEmbeddings(data: HasEmbeddingsResponse): boolean {
   if (typeof data === "boolean") return data;
-  if (typeof (data as any)?.has_embeddings === "boolean") return (data as any).has_embeddings;
-  if (typeof (data as any)?.hasEmbeddings === "boolean") return (data as any).hasEmbeddings;
+  if (typeof (data as any)?.has_embeddings === "boolean")
+    return (data as any).has_embeddings;
+  if (typeof (data as any)?.hasEmbeddings === "boolean")
+    return (data as any).hasEmbeddings;
   if (typeof (data as any)?.ok === "boolean") return (data as any).ok;
   return false;
 }
 
-// ✅ ensure we never try to render an object as error text
 function toErrorString(err: unknown): string {
   if (!err) return "Something went wrong.";
   if (typeof err === "string") return err;
 
-  // FastAPI: {detail:[{loc,msg,type,...}]}
   const detail = (err as any)?.detail;
   if (Array.isArray(detail) && detail.length > 0) {
     const first = detail[0];
@@ -54,7 +53,6 @@ export default function PicturePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ Check "has embedding" on mount; if true => /events
   useEffect(() => {
     let cancelled = false;
 
@@ -63,10 +61,9 @@ export default function PicturePage() {
       setError(null);
 
       try {
-        // ✅ confirmed working endpoint + method in your logs
         const res = await apiClient.post<HasEmbeddingsResponse>(
           "/protected/model/hasEmbedding",
-          {}
+          {},
         );
 
         const has = coerceHasEmbeddings((res as any)?.data ?? (res as any));
@@ -112,11 +109,13 @@ export default function PicturePage() {
       setIsUploading(true);
 
       const fd = new FormData();
-      // ✅ MUST match FastAPI param name
+
       fd.append("upload_image", file, file.name);
 
-      // ✅ Use apiClient like your friend (requires apiClient.post to support FormData)
-      const response = await apiClient.post<any>("/protected/uploadPicture", fd);
+      const response = await apiClient.post<any>(
+        "/protected/uploadPicture",
+        fd,
+      );
 
       if ((response as any)?.error) {
         setError(toErrorString((response as any).error));
@@ -131,31 +130,28 @@ export default function PicturePage() {
     }
   };
 
-  if (isCheckingEmbeddings) {
-    return (
-      <div className={styles.pageWrapper}>
-        <img src="/logo.png" className={styles.logo} alt="Logo" />
-        <div className={styles.card} style={{ maxWidth: 640, margin: "24px auto" }}>
-          <h1 className={styles.title}>Checking your profile…</h1>
-          <p style={{ marginBottom: 0, color: "#666" }}>
-            We’re seeing if your embeddings are already ready.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className={styles.pageWrapper}>
       <img src="/logo.png" className={styles.logo} alt="Logo" />
 
-      <div className={styles.card} style={{ maxWidth: 640, margin: "24px auto" }}>
+      <div
+        className={styles.card}
+        style={{ maxWidth: 640, margin: "24px auto" }}
+      >
         <h1 className={styles.title}>Upload Profile Picture</h1>
         <p style={{ marginBottom: 16, color: "#666" }}>
-          Add a profile picture so we can generate your embedding. JPG/PNG/WebP, up to 5MB.
+          Add a profile picture so we can generate your embedding. JPG/PNG/WebP,
+          up to 5MB.
         </p>
 
-        <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 16,
+            alignItems: "center",
+            marginBottom: 12,
+          }}
+        >
           {previewUrl ? (
             <img
               src={previewUrl}
@@ -257,20 +253,6 @@ export default function PicturePage() {
             }}
           >
             {isUploading ? "Uploading..." : "Upload & Continue"}
-          </button>
-
-          <button
-            className={styles.button}
-            onClick={() => router.push("/events")}
-            disabled={isUploading}
-            style={{
-              flex: 1,
-              background: "transparent",
-              border: "1px solid #ddd",
-              color: "#111",
-            }}
-          >
-            Skip for now
           </button>
         </div>
       </div>

@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --background: rgb(121, 56, 195);
-  --foreground: oklch(100% 0.00011 271.152);
+
+  --background: linear-gradient(135deg, rgb(115, 21, 222), rgb(146, 112, 188));
+  --foreground: oklch(0% 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.2 0.02 264);
   --popover: oklch(1 0 0);
@@ -37,7 +38,7 @@
 }
 
 .dark {
-  --background: rgb(121, 56, 195);
+  --background: linear-gradient(135deg, rgb(115, 21, 222), rgb(146, 112, 188));
   --foreground: oklch(0% 0 0);
   --card: oklch(0.18 0.02 264);
   --card-foreground: oklch(0.95 0.01 264);
@@ -116,9 +117,13 @@
   * {
     @apply border-border;
   }
+
   body {
-    @apply bg-background text-foreground;
-  }
+  @apply text-foreground;
+  background: var(--background); /* <-- gradient works here */
+  min-height: 100vh;
+}
+
 }
 #page-root {
   min-height: 100vh;
