@@ -40,6 +40,8 @@
 .dark {
   --background: linear-gradient(135deg, rgb(115, 21, 222), rgb(146, 112, 188));
   --foreground: oklch(0% 0 0);
+  --background2: oklch(0.15 0.02 264);
+  --foreground2: oklch(0.95 0.01 264);
   --card: oklch(0.18 0.02 264);
   --card-foreground: oklch(0.95 0.01 264);
   --popover: oklch(0.18 0.02 264);
@@ -77,6 +79,8 @@
   --font-mono: var(--font-geist-mono);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-background2: var(--background2);
+  --color-foreground2: var(--foreground2);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);

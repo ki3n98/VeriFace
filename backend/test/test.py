@@ -15,7 +15,7 @@ HAS_EMBEDDING_URL = f"{BASE_URL}/protected/model/hasEmbedding"
 
 EMAIL = "test2@example.com"
 PASSWORD = "123"
-# IMAGE_PATH = Path("./test_img.png")
+IMAGE_PATH = Path("./test_img.png")
 
 
 def login_and_get_token() -> str:
@@ -227,11 +227,14 @@ def check_in(session_id, IMAGE_PATH):
         print("check in status:", resp.status_code)
         print("Response:", resp.text)
         resp.raise_for_status()
+        
+
 
 
 if __name__ == "__main__":
-    # token = login_and_get_token()
+    token = login_and_get_token()
+    has_embedding(token)
     # session = create_session(token, 15)
     # upload_picture_godmode(12, Path("./jason.jpg"))
-    session_id = 21
-    check_in(session_id, Path("./syn.jpg")) 
+    # session_id = 21
+    # check_in(session_id, Path("./syn.jpg")) 

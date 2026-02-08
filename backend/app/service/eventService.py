@@ -33,12 +33,12 @@ class EventService:
         raise HTTPException(status_code=400, detail="Event id does not exist.")
     
 
-    def remove_event(self, event_to_remove: EventToRemove) ->str:
+    def remove_event(self, event_to_remove: EventToRemove) -> int:
         # EventUserService(session=self.__eventRepository.session).remove_relationship(
         #     event_user=EventUserRemove(user_id=event_to_remove.user_id, event_id=event_to_remove.event_id)
         # )
 
-        result = self.__eventRepository.delete_event_by_id(
+        result = self.__eventRepository.delete_event_cascade(
             user_id = event_to_remove.user_id, 
             event_id = event_to_remove.event_id
             )
