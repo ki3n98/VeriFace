@@ -46,9 +46,12 @@ class EventUserService:
             raise HTTPException(status_code=400, detail="Removing relationship ran into an error.")
         
 
-    def get_users(self, event_id:int) -> List[UserOutput]:
+    def get_users(self, event_id: int, exclude_creator: bool = True) -> List[UserOutput]:
+        """Return users in the event. By default excludes the event creator (admin) from the list."""
         try:
-            return self.__EventUserRepository.get_users_from_event(event_id=event_id)
+            return self.__EventUserRepository.get_users_from_event(
+                event_id=event_id, exclude_creator=exclude_creator
+            )
         except Exception as error:
             print(error)
             raise error
@@ -90,9 +93,9 @@ class EventUserService:
                     #user doesn't exist in db, need to create
                     is_new_user  = True
 
-                #Check if user is already in event
+                #Check if user is already in event (include creator for duplicate check)
                 if user:
-                    existing_users = self.get_users(event_id=event_id)
+                    existing_users = self.get_users(event_id=event_id, exclude_creator=False)
                     existing_users_ids = [u.id for u in existing_users]
                     if user.id in existing_users_ids:
                         already_in_event = True

@@ -24,6 +24,8 @@ import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { apiClient } from "@/lib/api"
 import { AddMemberModal } from "@/app/events/components/AddMemberModal"
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
+import { X } from "lucide-react"
 
 // Hardcoded data
 const summaryStats = {
@@ -98,6 +100,8 @@ export default function Dashboard() {
   const [members, setMembers] = useState<EventMember[]>([])
   const [loadingMembers, setLoadingMembers] = useState(false)
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false)
+  const [memberToDelete, setMemberToDelete] = useState<EventMember | null>(null)
+  const [isDeletingMember, setIsDeletingMember] = useState(false)
   const eventId = searchParams?.get('eventId') ? parseInt(searchParams.get('eventId')!) : null
 
   useEffect(() => {
@@ -152,6 +156,29 @@ export default function Dashboard() {
           setMembers(response.data)
         }
       })
+    }
+  }
+
+  const handleDeleteMemberClick = (member: EventMember, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setMemberToDelete(member)
+  }
+
+  const handleConfirmDeleteMember = async () => {
+    if (!memberToDelete || !eventId) return
+    setIsDeletingMember(true)
+    try {
+      const response = await apiClient.removeMember(eventId, memberToDelete.id)
+      if (response.error) {
+        alert(`Failed to remove member: ${response.error}`)
+        throw new Error(response.error)
+      }
+      setMembers((prev) => prev.filter((m) => m.id !== memberToDelete.id))
+    } catch (error) {
+      console.error("Error removing member:", error)
+      throw error
+    } finally {
+      setIsDeletingMember(false)
     }
   }
 
@@ -490,24 +517,25 @@ export default function Dashboard() {
                   <TableHead>Check-in Time</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Face Match</TableHead>
+                  <TableHead className="w-12">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loadingMembers ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Loading members...
                     </TableCell>
                   </TableRow>
                 ) : members.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       {eventId ? "No members added yet. Click 'Add Member' to get started." : "Select an event to view members."}
                     </TableCell>
                   </TableRow>
                 ) : (
                   members.map((member) => (
-                    <TableRow key={member.id}>
+                    <TableRow key={member.id} className="group">
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar>
@@ -534,6 +562,15 @@ export default function Dashboard() {
                         </Badge>
                       </TableCell>
                       <TableCell className="font-medium">—</TableCell>
+                      <TableCell>
+                        <button
+                          onClick={(e) => handleDeleteMemberClick(member, e)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full bg-red-500 hover:bg-red-600 text-white"
+                          aria-label={`Remove ${member.first_name} ${member.last_name}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -552,6 +589,21 @@ export default function Dashboard() {
           onMemberAdded={handleMemberAdded}
         />
       )}
+
+      {/* Delete Member Confirmation */}
+      <DeleteConfirmDialog
+        isOpen={memberToDelete !== null}
+        onClose={() => setMemberToDelete(null)}
+        onConfirm={handleConfirmDeleteMember}
+        title="Remove Member"
+        message={
+          memberToDelete
+            ? `Are you sure you want to remove ${memberToDelete.first_name} ${memberToDelete.last_name} from this event? They will no longer have access to this event.`
+            : ""
+        }
+        confirmLabel="Remove Member"
+        isLoading={isDeletingMember}
+      />
     </div>
   )
 }

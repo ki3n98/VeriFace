@@ -60,14 +60,23 @@ class EventUserRepository(BaseRepository):
         return deleted 
     
 
-    def get_users_from_event(self, event_id: int) -> List[UserOutput]:
+    def get_users_from_event(self, event_id: int, exclude_creator: bool = True) -> List[UserOutput]:
+        """Return users in the event. By default excludes the event creator (admin) from attendance list."""
+        event = self.session.get(Event, event_id)
+        creator_id = event.user_id if event else None
+
         users = (
             self.session.query(User)
             .join(EventUser, User.id == EventUser.user_id)
             .filter(EventUser.event_id == event_id)
             .all()
         )
-        return [UserOutput.model_validate(u, from_attributes=True) for u in users]
+        user_outputs = [UserOutput.model_validate(u, from_attributes=True) for u in users]
+
+        if exclude_creator and creator_id is not None:
+            user_outputs = [u for u in user_outputs if u.id != creator_id]
+
+        return user_outputs
     
 
     def get_events_for_user(self, user_id: int) -> List[EventOutput]:

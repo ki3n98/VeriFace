@@ -3,9 +3,9 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Plus, X, Image as ImageIcon } from "lucide-react"
 import { CreateEventModal } from "./components/CreateEventModal"
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { useEvents } from "@/lib/hooks/useEvents"
 import { apiClient } from "@/lib/api"
 
@@ -22,6 +22,8 @@ export default function EventsPage() {
   const router = useRouter()
   const { events, loading, error, refetch } = useEvents()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [eventToDelete, setEventToDelete] = useState<number | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const handleEventClick = (eventId: number) => {
     // Navigate to dashboard with event ID (can be used later for filtering)
@@ -89,28 +91,26 @@ export default function EventsPage() {
     }
   }
 
-  const handleDeleteEvent = async (eventId: number, e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent triggering the card click
-    
-    if (!confirm("Are you sure you want to delete this event?")) {
-      return
-    }
+  const handleDeleteEventClick = (eventId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEventToDelete(eventId)
+  }
 
+  const handleConfirmDeleteEvent = async () => {
+    if (eventToDelete === null) return
+    setIsDeleting(true)
     try {
-      const response = await apiClient.post('/protected/event/removeEvent', {
-        event_id: eventId,
-      })
-
+      const response = await apiClient.removeEvent(eventToDelete)
       if (response.error) {
         alert(`Failed to delete event: ${response.error}`)
-        return
+        throw new Error(response.error)
       }
-
-      // Refresh events list
       await refetch()
     } catch (error) {
-      console.error('Error deleting event:', error)
-      alert('Failed to delete event. Please try again.')
+      console.error("Error deleting event:", error)
+      throw error // Keep dialog open so user can retry or cancel
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -164,7 +164,7 @@ export default function EventsPage() {
               <CardContent className="p-6">
                 {/* Delete button - appears on hover */}
                 <button
-                  onClick={(e) => handleDeleteEvent(event.id, e)}
+                  onClick={(e) => handleDeleteEventClick(event.id, e)}
                   className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full bg-red-500 hover:bg-red-600 text-white"
                   aria-label="Delete event"
                 >
@@ -210,6 +210,17 @@ export default function EventsPage() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateEvent}
+      />
+
+      {/* Delete Event Confirmation */}
+      <DeleteConfirmDialog
+        isOpen={eventToDelete !== null}
+        onClose={() => setEventToDelete(null)}
+        onConfirm={handleConfirmDeleteEvent}
+        title="Delete Event"
+        message={`Are you sure you want to delete "${events.find((e) => e.id === eventToDelete)?.event_name ?? "this event"}"? This will remove the event and all associated data. This action cannot be undone.`}
+        confirmLabel="Delete Event"
+        isLoading={isDeleting}
       />
     </div>
   )

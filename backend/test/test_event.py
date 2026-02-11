@@ -486,26 +486,40 @@ class TestGetUsers:
         client: TestClient,
         test_event_with_relationship,
         test_user,
-        auth_headers
+        second_test_user,
+        auth_headers,
+        test_db
     ):
-        """Test getting all users for an event."""
+        """Test getting users for an event. Creator (admin) is excluded from attendance list."""
+        from app.db.models.event_user import EventUser
+
+        # Add second user to event so we have a non-creator to return
+        relationship = EventUser(
+            user_id=second_test_user.id,
+            event_id=test_event_with_relationship.id
+        )
+        test_db.add(relationship)
+        test_db.commit()
+
         payload = {
             "id": test_event_with_relationship.id
         }
-        
+
         response = client.post(
             "/protected/event/getUsers",
             json=payload,
             headers=auth_headers
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
         assert len(data) >= 1
-        # Should include test_user
         user_ids = [user["id"] for user in data]
-        assert test_user.id in user_ids
+        # Should include second_test_user (member)
+        assert second_test_user.id in user_ids
+        # Creator (admin) should NOT be in attendance list
+        assert test_user.id not in user_ids
     
     def test_get_users_empty_event(
         self,

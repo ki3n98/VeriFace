@@ -283,8 +283,8 @@ async def add_single_member(
             )
             member_user = user_service.signup(user_details=user_data)
         
-        # Check if user is already in event
-        existing_users = event_user_service.get_users(event_id=event_id)
+        # Check if user is already in event (include creator for duplicate check)
+        existing_users = event_user_service.get_users(event_id=event_id, exclude_creator=False)
         existing_users_ids = [u.id for u in existing_users]
         if member_user.id in existing_users_ids:
             return {

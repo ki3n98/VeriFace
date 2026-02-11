@@ -33,7 +33,7 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const token = this.getAuthToken();
 
-    // ✅ Detect FormData (so we don't force JSON headers/body)
+    // Detect FormData (so we don't force JSON headers/body)
     const isFormData =
       typeof FormData !== "undefined" && options.body instanceof FormData;
 
@@ -43,7 +43,7 @@ class ApiClient {
       ...(options.headers as Record<string, string>),
     };
 
-    // ✅ Only set JSON content-type when NOT FormData and when caller didn't already set it
+    // Only set JSON content-type when NOT FormData and when caller didn't already set it
     if (!isFormData && !headers["Content-Type"]) {
       headers["Content-Type"] = "application/json";
     }
@@ -61,7 +61,7 @@ class ApiClient {
         headers,
       });
 
-      // ✅ Read body once (prevents "body stream already read")
+      // Read body once (prevents "body stream already read")
       const raw = await response.text();
 
       // Parse response (JSON if possible, otherwise treat as text)
@@ -227,6 +227,20 @@ class ApiClient {
         email: string;
       }>
     >("/protected/event/getUsers", { id: eventId });
+  }
+
+  async removeEvent(eventId: number) {
+    return this.post<{ success: boolean; message: string }>(
+      "/protected/event/removeEvent",
+      { event_id: eventId }
+    );
+  }
+
+  async removeMember(eventId: number, memberId: number) {
+    return this.post<{ success: boolean; message: string }>(
+      `/protected/event/${eventId}/removeMember?member_id=${memberId}`,
+      {}
+    );
   }
 
   // User Settings
