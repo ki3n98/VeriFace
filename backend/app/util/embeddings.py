@@ -4,9 +4,8 @@ from PIL import Image, UnidentifiedImageError
 from app.db.models.user import User
 from fastapi import UploadFile, File, HTTPException
 
-
 import numpy as np
-import io
+import io, cv2
 
 
 model = ModelService()
@@ -40,10 +39,11 @@ async def upload_img_to_embedding(upload_image: UploadFile = File(...)):
     data = await upload_image.read(MAX_SIZE + 1)
     if len(data) > MAX_SIZE:
         raise HTTPException(status_code=413, detail=f"File too large (max {MAX_SIZE // (1024*1024)} MB)")
+    arr = np.frombuffer(data, np.uint8)
+    img = cv2.imdecode(arr,cv2.IMREAD_COLOR)
 
-    image_array = _bytes_to_rgb_array(data)
-
-    embeddings = await run_in_threadpool(model.img_to_embedding, image_array)
+    # image_array = _bytes_to_rgb_array(data)
+    embeddings = await run_in_threadpool(model.img_to_embedding, img)
 
     if len(embeddings) > 2:
         raise HTTPException(status_code=422, detail="Detected 2 or more faces.")
