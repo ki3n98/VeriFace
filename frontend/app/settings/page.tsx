@@ -67,7 +67,7 @@ export default function SettingsPage() {
     <div className="flex min-h-screen bg-background2">
       {/* Sidebar */}
       <aside
-        className={`bg-purple-500 text-white flex flex-col transition-all duration-300 ${
+        className={`bg-[var(--sidebar)] text-[var(--sidebar-foreground)] flex flex-col transition-all duration-300 ${
           isSidebarCollapsed ? "w-20 px-4 py-6" : "w-64 p-6"
         }`}
       >
@@ -88,8 +88,8 @@ export default function SettingsPage() {
             href="/dashboard"
             className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
               pathname === '/dashboard'
-                ? 'bg-purple-600 font-medium'
-                : 'hover:bg-purple-600/50'
+                ? 'bg-[var(--sidebar-accent)] font-medium'
+                : 'hover:bg-[var(--sidebar-accent)]/50'
             }`}
           >
             {isSidebarCollapsed ? "H" : "Home"}
@@ -98,8 +98,8 @@ export default function SettingsPage() {
             href="/events"
             className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
               pathname === '/events'
-                ? 'bg-purple-600 font-medium'
-                : 'hover:bg-purple-600/50'
+                ? 'bg-[var(--sidebar-accent)] font-medium'
+                : 'hover:bg-[var(--sidebar-accent)]/50'
             }`}
           >
             {isSidebarCollapsed ? "E" : "Events"}
@@ -108,8 +108,8 @@ export default function SettingsPage() {
             href="/settings"
             className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
               pathname === '/settings'
-                ? 'bg-purple-600 font-medium'
-                : 'hover:bg-purple-600/50'
+                ? 'bg-[var(--sidebar-accent)] font-medium'
+                : 'hover:bg-[var(--sidebar-accent)]/50'
             }`}
           >
             {isSidebarCollapsed ? "S" : "Settings"}
@@ -117,11 +117,11 @@ export default function SettingsPage() {
         </nav>
 
         {/* Profile Section */}
-        <div className="pt-4 border-t border-purple-400/30">
+        <div className="pt-4 border-t border-[var(--sidebar-border)]/30">
           {user ? (
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10 border-2 border-white">
-                <AvatarFallback className="bg-purple-600 text-white font-semibold">
+                <AvatarFallback className="bg-primary text-white font-semibold">
                   {getInitials(user.first_name, user.last_name)}
                 </AvatarFallback>
               </Avatar>
@@ -130,7 +130,7 @@ export default function SettingsPage() {
                   <div className="font-semibold text-sm truncate">
                     {user.first_name} {user.last_name}
                   </div>
-                  <div className="text-xs text-purple-100 truncate">
+                  <div className="text-xs opacity-90 truncate">
                     {user.email}
                   </div>
                 </div>
@@ -138,7 +138,7 @@ export default function SettingsPage() {
             </div>
           ) : (
             !isSidebarCollapsed && (
-              <div className="text-sm text-purple-100">Not logged in</div>
+              <div className="text-sm opacity-90">Not logged in</div>
             )
           )}
         </div>
@@ -149,6 +149,7 @@ export default function SettingsPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
+            
             <Button
               variant="ghost"
               size="icon"
@@ -171,15 +172,15 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <User className="h-5 w-5 text-purple-600" />
+                <User className="h-5 w-5 text-primary" />
                 <CardTitle>User Information</CardTitle>
               </div>
               <CardDescription>Your account details</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-6">
-                <Avatar className="h-20 w-20 border-4 border-purple-500">
-                  <AvatarFallback className="bg-purple-600 text-white font-semibold text-2xl">
+                <Avatar className="h-20 w-20 border-4 border-primary">
+                  <AvatarFallback className="bg-primary text-white font-semibold text-2xl">
                     {user && getInitials(user.first_name, user.last_name)}
                   </AvatarFallback>
                 </Avatar>
@@ -207,7 +208,7 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <Palette className="h-5 w-5 text-purple-600" />
+                <Palette className="h-5 w-5 text-primary" />
                 <CardTitle>Appearance</CardTitle>
               </div>
               <CardDescription>Customize how VeriFace looks on your device</CardDescription>

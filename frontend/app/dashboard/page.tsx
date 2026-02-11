@@ -194,7 +194,7 @@ export default function Dashboard() {
     <div className="flex min-h-screen bg-background2">
       {/* Sidebar */}
       <aside
-        className={`bg-purple-500 text-white flex flex-col transition-all duration-300 ${
+        className={`bg-[var(--sidebar)] text-[var(--sidebar-foreground)] flex flex-col transition-all duration-300 ${
           isSidebarCollapsed ? "w-20 px-4 py-6" : "w-64 p-6"
         }`}
       >
@@ -215,8 +215,8 @@ export default function Dashboard() {
             href="/dashboard"
             className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
               pathname === '/dashboard'
-                ? 'bg-purple-600 font-medium'
-                : 'hover:bg-purple-600/50'
+                ? 'bg-[var(--sidebar-accent)] font-medium'
+                : 'hover:bg-[var(--sidebar-accent)]/50'
             }`}
           >
             {isSidebarCollapsed ? "H" : "Home"}
@@ -225,18 +225,18 @@ export default function Dashboard() {
             href="/events"
             className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
               pathname === '/events'
-                ? 'bg-purple-600 font-medium'
-                : 'hover:bg-purple-600/50'
+                ? 'bg-[var(--sidebar-accent)] font-medium'
+                : 'hover:bg-[var(--sidebar-accent)]/50'
             }`}
           >
             {isSidebarCollapsed ? "E" : "Events"}
           </Link>
           <Link
-            href="/dashboard/settings"
+            href="/settings"
             className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
-              pathname === '/dashboard/settings'
-                ? 'bg-purple-600 font-medium'
-                : 'hover:bg-purple-600/50'
+              pathname === '/settings'
+                ? 'bg-[var(--sidebar-accent)] font-medium'
+                : 'hover:bg-[var(--sidebar-accent)]/50'
             }`}
           >
             {isSidebarCollapsed ? "S" : "Settings"}
@@ -244,21 +244,21 @@ export default function Dashboard() {
         </nav>
 
         {/* Profile Section */}
-        <div className="pt-4 border-t border-purple-400/30">
+        <div className="pt-4 border-t border-[var(--sidebar-border)]/30">
           {loading ? (
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-purple-400/30 animate-pulse" />
+              <div className="w-10 h-10 rounded-full bg-white/10 animate-pulse" />
               {!isSidebarCollapsed && (
                 <div className="flex-1">
-                  <div className="h-4 bg-purple-400/30 rounded animate-pulse mb-2" />
-                  <div className="h-3 bg-purple-400/30 rounded animate-pulse w-2/3" />
+                  <div className="h-4 bg-white/10 rounded animate-pulse mb-2" />
+                  <div className="h-3 bg-white/10 rounded animate-pulse w-2/3" />
                 </div>
               )}
             </div>
           ) : user ? (
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10 border-2 border-white">
-                <AvatarFallback className="bg-purple-600 text-white font-semibold">
+                <AvatarFallback className="bg-primary text-white font-semibold">
                   {getInitials(user.first_name, user.last_name)}
                 </AvatarFallback>
               </Avatar>
@@ -267,7 +267,7 @@ export default function Dashboard() {
                   <div className="font-semibold text-sm truncate">
                     {user.first_name} {user.last_name}
                   </div>
-                  <div className="text-xs text-purple-100 truncate">
+                  <div className="text-xs opacity-90 truncate">
                     {user.email}
                   </div>
                 </div>
@@ -275,7 +275,7 @@ export default function Dashboard() {
             </div>
           ) : (
             !isSidebarCollapsed && (
-              <div className="text-sm text-purple-100">Not logged in</div>
+              <div className="text-sm opacity-90">Not logged in</div>
             )
           )}
         </div>
@@ -379,14 +379,14 @@ export default function Dashboard() {
         <div className="flex gap-3 mb-8">
           {eventId && (
             <>
-              <Button 
-                className="bg-purple-600 hover:bg-purple-700"
+              <Button
+                className="bg-primary hover:bg-primary/90"
                 onClick={() => setIsAddMemberModalOpen(true)}
               >
                 <UserPlus className="h-4 w-4 mr-2" />
                 Add Member
               </Button>
-              <Button variant="outline" className="border-purple-600 text-purple-600 hover:bg-purple-50 bg-transparent">
+              <Button variant="outline" className="border-primary text-primary hover:bg-primary/10 bg-transparent">
                 <QrCode className="h-4 w-4 mr-2" />
                 Generate Token
               </Button>
@@ -418,7 +418,7 @@ export default function Dashboard() {
                     variant={viewMode === "week" ? "default" : "outline"}
                     size="sm"
                     onClick={() => setViewMode("week")}
-                    className="bg-purple-600 hover:bg-purple-700"
+                    className="bg-primary hover:bg-primary/90"
                   >
                     Week
                   </Button>
@@ -501,7 +501,7 @@ export default function Dashboard() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Today's Attendance List</CardTitle>
-              <Button className="bg-purple-600 hover:bg-purple-700">
+              <Button className="bg-primary hover:bg-primary/90">
                 <Download className="h-4 w-4 mr-2" />
                 Export Report
               </Button>
@@ -539,7 +539,7 @@ export default function Dashboard() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar>
-                            <AvatarFallback className="bg-purple-500 text-white">
+                            <AvatarFallback className="bg-primary text-white">
                               {getInitials(member.first_name, member.last_name)}
                             </AvatarFallback>
                           </Avatar>

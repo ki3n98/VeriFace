@@ -127,7 +127,7 @@ export default function EventsPage() {
   return (
     <div className="min-h-screen bg-background2">
       {/* Header */}
-      <header className="bg-purple-600 text-white shadow-md">
+      <header className="bg-primary text-primary-foreground shadow-md">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="VeriFace Logo" className="h-10 w-auto" />
@@ -189,13 +189,13 @@ export default function EventsPage() {
 
           {/* Create Event Card */}
           <Card
-            className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-dashed border-purple-400 hover:border-purple-600"
+            className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-dashed border-secondary/40 hover:border-secondary"
             onClick={() => setIsCreateModalOpen(true)}
           >
             <CardContent className="p-6 h-full flex flex-col items-center justify-center min-h-[300px]">
               <div className="text-center">
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-purple-100 dark:bg-purple-900/30 rounded-full mb-4">
-                  <Plus className="h-10 w-10 text-purple-600 dark:text-purple-400" />
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-secondary/10 rounded-full mb-4">
+                  <Plus className="h-10 w-10 text-secondary" />
                 </div>
                 <h3 className="text-xl font-semibold text-foreground2 mb-2">Create Class or Event</h3>
                 <p className="text-sm text-muted-foreground">Click to add a new event or class</p>
