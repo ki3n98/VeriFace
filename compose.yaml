@@ -6,12 +6,14 @@ services:
       dockerfile: Dockerfile
     ports:
       - "80:80"
+    env_file:
+      - ./backend/.env
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              count: all
               capabilities: [gpu]
     develop:
       watch:
@@ -24,6 +26,15 @@ services:
             - __pycache__/
     networks:
       - app-network
+    
+    stdin_open: true
+    tty: true
+    shm_size: '8gb'
+
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
 
   web:
     build:
@@ -45,14 +56,13 @@ services:
           ignore:
             - node_modules/
             - .next/
-    environment:
-      - SERVER_URL=http://server:80
     networks:
       - app-network
     depends_on:
       server:
         condition: service_started
 
+    
 
 networks:
   app-network:

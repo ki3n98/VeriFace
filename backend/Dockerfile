@@ -1,5 +1,5 @@
 # Dockerfile
-FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04
+FROM nvidia/cuda:12.8.0-runtime-ubuntu24.04
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
     python3.12 \
     python3.12-venv \
     python3.12-dev \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -26,8 +26,14 @@ ENV PATH="/opt/venv/bin:$PATH"
 WORKDIR /app
 
 COPY requirements.txt .
+
+RUN pip3 install --no-cache-dir \
+    torch torchvision torchaudio \
+    --index-url https://download.pytorch.org/whl/cu128
+
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir opencv-python-headless && \
+    pip install --no-cache-dir --no-deps facenet-pytorch==2.6.0 && \
     pip install --no-cache-dir -r requirements.txt
 
 COPY . .
