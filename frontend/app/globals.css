@@ -2,9 +2,9 @@
 
 :root {
 
-  --background: linear-gradient(135deg, rgb(115, 21, 222), rgb(146, 112, 188));
-  --foreground: oklch(0% 0 0);
-  /* Soft Orchid Background System */
+  --background: oklch(0.613 0.2195 301.7); /*Lavender purple okLCH*/
+  --foreground: oklch(0.1866 0.0333 224.29); /*Ink black okLCH*/ 
+  /* Soft Orchid Background System */ 
   --background2: oklch(0.96 0.03 300);
   --foreground2: oklch(0.28 0.08 285);
   --card: oklch(1 0 0);
@@ -42,8 +42,8 @@
 }
 
 .dark {
-  --background: linear-gradient(135deg, rgb(115, 21, 222), rgb(146, 112, 188));
-  --foreground: oklch(0% 0 0);
+  --background: oklch(0.613 0.2195 301.7); /*Lavender purple okLCH*/
+  --foreground: oklch(0.1866 0.0333 224.29); /*Ink black okLCH*/ 
   /* Deep Royal Violet Base */
   --background2: oklch(0.3 0.05 295);
   --foreground2: oklch(0.95 0.02 300);

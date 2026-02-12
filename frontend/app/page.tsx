@@ -8,10 +8,11 @@ export default function Home() {
         className="
           sticky top-0 z-50 w-full
           flex items-center justify-center
-          px-6 py-3
-          bg-gradient-to-b from-black/40 to-black/10
+          px-6 py-1
+          bg-gradient-to-b from-white/40 to-white/10
           backdrop-blur-md
-          border-b border-white/10"
+        
+          shadow-md"
       >
         <div className="flex items-center justify-between w-full max-w-8xl">
           <div className="flex items-center gap-3">
@@ -21,9 +22,9 @@ export default function Home() {
           <div className="space-x-4">
             <a
               href="/sign-in"
-              className="inline-block px-6 py-2 bg-white hover:bg-purple-600 hover:text-white text-purple-900 rounded-lg transition"
+              className="inline-block px-5 py-2 bg-white hover:bg-purple-600 hover:text-white text-purple-900 rounded-lg transition"
             >
-              Sign-In
+              Sign In
             </a>
           </div>
         </div>
@@ -47,7 +48,7 @@ export default function Home() {
       <div>
         {/* Summary Cards */}
         <div className="grid grid-cols-3 gap-6 mb-8 bg-transparent px-6">
-          <Card className="bg-gradient-to-b from-black/40 to-black/10">
+          <Card className="bg-gradient-to-b from-black/20 to-black/10">
             <CardHeader>
               <h2 className="text-3xl font-semibold text-white">Lorem ipsum</h2>
             </CardHeader>
@@ -59,7 +60,7 @@ export default function Home() {
               </p>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-b from-black/40 to-black/10">
+          <Card className="bg-gradient-to-b from-black/20 to-black/10">
             <CardHeader>
               <h2 className="text-3xl font-semibold text-white">Lorem ipsum</h2>
             </CardHeader>
@@ -71,7 +72,7 @@ export default function Home() {
               </p>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-b from-black/40 to-black/10">
+          <Card className="bg-gradient-to-b from-black/20 to-black/10">
             <CardHeader>
               <h2 className="text-3xl font-semibold text-white">Lorem ipsum</h2>
             </CardHeader>
