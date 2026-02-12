@@ -16,8 +16,8 @@ class AttendanceService:
         self.__repo = AttendanceRepository(session=session)
         self.session = session
 
-    def add_users_for_session(self, session_id: int, user_id:int) -> Attendance:
-        return self.__repo.add_users(session_id, user_id)
+    def add_users_for_session(self, session_id: int) -> list[Attendance]:
+        return self.__repo.add_users(session_id)
     
 
     def check_in_with_embedding(

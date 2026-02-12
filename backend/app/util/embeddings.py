@@ -14,22 +14,6 @@ ALLOWED = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_SIZE = 20 * 1024 * 1024  # 20 MB
 MAX_DIMENSION = 1280  # Max width or height in pixels for faster face detection
 
-def _bytes_to_rgb_array(data: bytes) -> np.ndarray:
-    try:
-        with Image.open(io.BytesIO(data)) as img:
-            img = img.convert("RGB")  # ensure RGB
-
-            # Downsample large images for faster face detection
-            width, height = img.size
-            if max(width, height) > MAX_DIMENSION:
-                scale = MAX_DIMENSION / max(width, height)
-                new_size = (int(width * scale), int(height * scale))
-                img = img.resize(new_size, Image.LANCZOS)
-
-            arr = np.asarray(img)     # H x W x 3, dtype=uint8
-    except UnidentifiedImageError:
-        raise HTTPException(status_code=400, detail="Invalid image file")
-    return arr
 
 
 async def upload_img_to_embedding(upload_image: UploadFile = File(...)):
@@ -42,7 +26,6 @@ async def upload_img_to_embedding(upload_image: UploadFile = File(...)):
     arr = np.frombuffer(data, np.uint8)
     img = cv2.imdecode(arr,cv2.IMREAD_COLOR)
 
-    # image_array = _bytes_to_rgb_array(data)
     embeddings = await run_in_threadpool(model.img_to_embedding, img)
 
     if len(embeddings) > 2:

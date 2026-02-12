@@ -32,7 +32,7 @@ async def create_session_attendance(
         event_session = SessionService(session=session).create_session(session_data=session_data)
 
         #create attendance
-        AttendanceService(session=session).add_users_for_session(session_id=event_session.id)
+        # AttendanceService(session=session).add_users_for_session(session_id=event_session.id)
 
         return event_session
         
@@ -59,6 +59,21 @@ async def check_in_with_face(
 
     return result
 
+@sessionRouter.post("/addMember")
+async def add_member(
+    session_id: int,
+    user_id: int,
+    session: Session = Depends(get_db)
+):  
+    try:
+        return AttendanceService(session=session).add_users_for_session(
+            session_id,
+            user_id
+            )
+    except Exception as error:
+        print(error)
+        raise error
+        
     
 
 
