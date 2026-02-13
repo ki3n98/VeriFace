@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { PanelLeft, Upload, QrCode, Download, TrendingUp, TrendingDown, AlertCircle, Users, UserPlus } from "lucide-react"
+import { PanelLeft, Upload, QrCode, Download, TrendingUp, TrendingDown, AlertCircle, Users, UserPlus, Mail } from "lucide-react"
 import {
   Bar,
   BarChart,
@@ -102,6 +102,7 @@ export default function Dashboard() {
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false)
   const [memberToDelete, setMemberToDelete] = useState<EventMember | null>(null)
   const [isDeletingMember, setIsDeletingMember] = useState(false)
+  const [isSendingInvites, setIsSendingInvites] = useState(false)
   const eventId = searchParams?.get('eventId') ? parseInt(searchParams.get('eventId')!) : null
 
   useEffect(() => {
@@ -179,6 +180,29 @@ export default function Dashboard() {
       throw error
     } finally {
       setIsDeletingMember(false)
+    }
+  }
+
+  const handleSendInvites = async () => {
+    if (!eventId) return
+    const confirmed = confirm(
+      "This will send invite emails to all members who haven't registered yet. Continue?"
+    )
+    if (!confirmed) return
+
+    setIsSendingInvites(true)
+    try {
+      const response = await apiClient.sendInviteEmails(eventId)
+      if (response.error) {
+        alert(`Failed to send invites: ${response.error}`)
+      } else if (response.data) {
+        alert(response.data.message)
+      }
+    } catch (error) {
+      console.error("Error sending invites:", error)
+      alert("Failed to send invite emails. Please try again.")
+    } finally {
+      setIsSendingInvites(false)
     }
   }
 
@@ -389,6 +413,15 @@ export default function Dashboard() {
               <Button variant="outline" className="border-primary text-primary hover:bg-primary/10 bg-transparent">
                 <QrCode className="h-4 w-4 mr-2" />
                 Generate Token
+              </Button>
+              <Button
+                variant="outline"
+                className="border-primary text-primary hover:bg-primary/10 bg-transparent"
+                onClick={handleSendInvites}
+                disabled={isSendingInvites}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                {isSendingInvites ? "Sending..." : "Send Invite Emails"}
               </Button>
             </>
           )}

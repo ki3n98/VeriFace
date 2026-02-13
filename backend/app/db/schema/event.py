@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Union
+from typing import List, Union
 from datetime import datetime
 
 """
@@ -48,3 +48,11 @@ class EventToRemove(BaseModel):
 
 class EventId(BaseModel):
     id:int
+
+
+class InviteEmailResponse(BaseModel):
+    success: bool
+    message: str
+    sent_count: int
+    failed_count: int
+    failed_emails: List[str] = []
