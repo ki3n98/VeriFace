@@ -12,7 +12,7 @@ from app.db.models.user import User
 
 class AttendanceRepository(BaseRepository):
 
-    def add_users(self, session_id: int, user_id: int):
+    def add_users(self, session_id: int):
         """
         For a given session_id:
         - find the event_id for that session
@@ -27,46 +27,57 @@ class AttendanceRepository(BaseRepository):
             .scalar()
         )
 
-
+    
         if event_id is None:
             raise ValueError(f"Session {session_id} not found")
 
         #Get all user_ids that belong to that event
-        user_id = (
+        user_ids = (
             self.session
-            .query(User.id)
-            .filter(User.id == user_id)
-            .scalar()
+            .query(EventUser.user_id)
+            .filter(EventUser.event_id == event_id)
+            .all()
         )
 
+        user_ids = [row[0] for row in user_ids]
 
-        if user_id is None:
+        if not user_ids:
             # No users for this event; nothing to do
-            raise ValueError(f"User {user_id} not found")
-
+            return []
 
         #Find existing attendance records for this session to avoid duplicates
-        is_exist = (
+        existing_user_ids = (
             self.session
             .query(Attendance.user_id)
-            .filter(Attendance.user_id == user_id and Attendance.session_id == session_id)
-            .scalar()
+            .filter(Attendance.session_id == session_id)
+            .all()
         )
 
+        existing_user_ids = {row[0] for row in existing_user_ids}
+
+        # Create Attendance rows for users that don't already have one
+        new_attendances: list[Attendance] = []
+
         # skip existing
-        if not is_exist:   
+        for user_id in user_ids:
+            if user_id in existing_user_ids:
+                continue  
+
             attendance = Attendance(
-                    user_id=user_id,
-                    session_id=session_id,
-                    status=AttendanceStatus.ABSENT,
-                )
+                user_id=user_id,
+                session_id=session_id,
+                status=AttendanceStatus.ABSENT,
+            )
             self.session.add(attendance)
-            self.session.commit()
-            self.session.refresh(attendance)
-            return attendance
+            new_attendances.append(attendance)
 
-        raise ValueError(f"User {user_id} with session {session_id} already exist!")
+        self.session.commit()
 
+        # Optionally refresh to get IDs etc.
+        for att in new_attendances:
+            self.session.refresh(att)
+
+        return new_attendances
 
 
 

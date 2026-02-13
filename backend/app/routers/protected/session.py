@@ -2,6 +2,7 @@ from app.db.schema.user import UserOutput
 from app.db.schema.session import SessionInCreate, SessionOutput
 from app.service.sessionService import SessionService
 from app.service.attendantService import AttendanceService
+from app.service.sessionService import SessionService
 from app.core.database import get_db
 from app.util.protectRoute import get_current_user
 from app.util.permission import check_permission
@@ -32,7 +33,7 @@ async def create_session_attendance(
         event_session = SessionService(session=session).create_session(session_data=session_data)
 
         #create attendance
-        # AttendanceService(session=session).add_users_for_session(session_id=event_session.id)
+        AttendanceService(session=session).add_users_for_session(session_id=event_session.id)
 
         return event_session
         
@@ -49,30 +50,21 @@ async def check_in_with_face(
     upload_image: UploadFile = File(...),
     session: Session = Depends(get_db),
 ):
+    try:
     # Convert image -> face embedding (ensures 1 face, size, etc.)
-    embedding = await upload_img_to_embedding(upload_image)
-    embedding = [float(x) for x in embedding]  # ensure JSON-serializable list
+        embedding = await upload_img_to_embedding(upload_image)
+        embedding = [float(x) for x in embedding]  # ensure JSON-serializable list
 
-    # Use service to find matching user and check them in
-    service = AttendanceService(session=session)
-    result = service.check_in_with_embedding(session_id=session_id, face_embedding=embedding)
+        # Use service to find matching user and check them in
+        service = AttendanceService(session=session)
+        result = service.check_in_with_embedding(session_id=session_id, face_embedding=embedding)
+    except Exception as error:
+        print(error)
+        raise error 
 
     return result
 
-@sessionRouter.post("/addMember")
-async def add_member(
-    session_id: int,
-    user_id: int,
-    session: Session = Depends(get_db)
-):  
-    try:
-        return AttendanceService(session=session).add_users_for_session(
-            session_id,
-            user_id
-            )
-    except Exception as error:
-        print(error)
-        raise error
+
         
     
 

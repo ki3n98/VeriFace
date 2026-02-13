@@ -16,8 +16,8 @@ class AttendanceService:
         self.__repo = AttendanceRepository(session=session)
         self.session = session
 
-    def add_users_for_session(self, session_id: int, user_id:int) -> Attendance:
-        return self.__repo.add_users(session_id, user_id)
+    def add_users_for_session(self, session_id: int) -> list[Attendance]:
+        return self.__repo.add_users(session_id)
     
 
     def check_in_with_embedding(
@@ -51,13 +51,12 @@ class AttendanceService:
         query_emb = np.asarray(face_embedding, dtype=float)
 
         best_user = None
-        best_attendance = None
-        best_sim = -1.0
+        best_sim = float('-inf')
 
         # 2) For each attendance row, get the user and compare embeddings
         for att in attendances:
             user = self.session.get(User, att.user_id)
-            if not user or not user.embedding:
+            if not user or not user.embedding or att.status == 'present':
                 continue
 
             user_emb = np.asarray(user.embedding, dtype=float)
@@ -66,18 +65,17 @@ class AttendanceService:
             if sim > best_sim:
                 best_sim = sim
                 best_user = user
-                best_attendance = att
 
         # No users had embeddings or similarity too low
         if best_user is None:
             raise HTTPException(
                 status_code=422,
-                detail="No users with embeddings for this session",
+                detail="No users to checkin. This could be due to no embedding or all users already checked-in.",
             )
 
         if best_sim < threshold:
             raise HTTPException(
-                status_code=401,
+                status_code=421,
                 detail="Face not recognized (similarity below threshold)",
             )
 
