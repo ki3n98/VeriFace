@@ -27,7 +27,7 @@ async def upload_picture(
     upload_image: UploadFile = File(...),
     user: UserOutput = Depends(get_current_user),
     session: Session = Depends(get_db),
-    response_model=UserOutput
+    response_model=UserOutput   
 ):
     embedding = await upload_img_to_embedding(upload_image)
     embedding = [float(x) for x in embedding]

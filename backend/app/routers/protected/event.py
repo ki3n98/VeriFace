@@ -345,3 +345,23 @@ async def remove_member(
             status_code=500,
             detail=f"Failed to remove member: {str(error)}"
         )
+    
+@eventRouter.post("/{event_id}/addRemainingMembers")
+async def add_remaining_members(
+    event_id: int,
+    session: Session = Depends(get_db),
+    user: UserOutput = Depends(get_current_user)
+):  
+    try:
+        if not check_permission(user_id=user.id, event_id=event_id, session=session):
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to add users to that event"
+            )
+        return EventService(session=session).add_new_users(
+            event_id,
+            )
+    
+    except Exception as error:
+        print(error)
+        raise error

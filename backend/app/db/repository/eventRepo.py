@@ -97,3 +97,5 @@ class EventRepository(BaseRepository):
         self.session.delete(event)
         self.session.commit()
         return True
+    
+    

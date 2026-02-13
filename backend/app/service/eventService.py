@@ -2,6 +2,10 @@ from app.db.repository.eventRepo import EventRepository
 from app.db.schema.event import EventInCreate, EventInUpdate, EventOutput, EventToRemove
 # from app.db.schema.EventUser import EventUserRemove
 # from app.service.eventUserService import EventUserService
+from app.db.repository.attendance import AttendanceRepository
+from app.db.models.session import Session as SessionEvent
+
+
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
@@ -9,6 +13,7 @@ from fastapi import HTTPException
 class EventService:
     def __init__(self, session:Session):
         self.__eventRepository = EventRepository(session=session)
+        self.session = session
 
 
     def create_event(self, event_details:EventInCreate) -> EventOutput:
@@ -51,4 +56,19 @@ class EventService:
             detail="{user_id} is not the owner of {event_id}."
             )
     
-    
+    def add_new_users(self,event_id) ->None:
+        sessions = (
+            self.session
+            .query(SessionEvent.id)
+            .filter(SessionEvent.event_id == event_id)
+            .all()
+            
+        )
+        if not sessions:
+            raise HTTPException(
+                status_code = 400,
+                detail = f"No sessions found with event {event_id}."
+            )
+        for s in sessions:
+            att = AttendanceRepository(session=self.session)
+            att.add_users(s.id)
