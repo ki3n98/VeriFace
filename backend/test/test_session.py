@@ -41,8 +41,10 @@ class TestCreateSession:
         
         assert response.status_code == 200
         data = response.json()
-        assert "id" in data
-        assert data["event_id"] == test_event_with_relationship.id
+        assert data["success"] is True
+        session_data = data["session"]
+        assert "id" in session_data
+        assert session_data["event_id"] == test_event_with_relationship.id
     
     def test_create_session_creates_attendance_records(
         self,
@@ -66,8 +68,8 @@ class TestCreateSession:
         )
         
         assert response.status_code == 200
-        session_id = response.json()["id"]
-        
+        session_id = response.json()["session"]["id"]
+
         # Check attendance records were created
         attendances = test_db.query(Attendance).filter_by(
             session_id=session_id
@@ -166,8 +168,8 @@ class TestCreateSession:
         assert response2.status_code == 200
         
         # Should have different session IDs
-        session_id1 = response1.json()["id"]
-        session_id2 = response2.json()["id"]
+        session_id1 = response1.json()["session"]["id"]
+        session_id2 = response2.json()["session"]["id"]
         assert session_id1 != session_id2
 
 
@@ -201,7 +203,7 @@ class TestCheckin:
         
         # Note: This test depends on actual face recognition
         # May fail if face doesn't match or isn't detected
-        assert response.status_code in [200, 401, 404, 422]
+        assert response.status_code in [200, 401, 404, 421, 422]
         
         if response.status_code == 200:
             data = response.json()
@@ -225,7 +227,7 @@ class TestCheckin:
         initial_attendance = test_db.query(Attendance).filter_by(
             id=test_attendance.id
         ).first()
-        assert initial_attendance.status == "ABSENT"
+        assert initial_attendance.status.value == "absent"
         
         with open(test_image_path, "rb") as img:
             files = {
@@ -244,7 +246,7 @@ class TestCheckin:
                 id=test_attendance.id
             ).first()
             
-            assert updated_attendance.status == "PRESENT"
+            assert updated_attendance.status.value == "present"
             assert updated_attendance.check_in_time is not None
     
     def test_checkin_no_session_found(
@@ -276,13 +278,13 @@ class TestCheckin:
         test_image_path
     ):
         """Test check-in when no users have embeddings."""
-        from app.db.models.attendance import Attendance
-        
+        from app.db.models.attendance import Attendance, AttendanceStatus
+
         # Create attendance for user without embedding
         attendance = Attendance(
             session_id=test_session.id,
             user_id=test_user.id,
-            status="ABSENT"
+            status=AttendanceStatus.ABSENT
         )
         test_db.add(attendance)
         test_db.commit()
@@ -299,7 +301,7 @@ class TestCheckin:
         
         assert response.status_code == 422
         data = response.json()
-        assert_error_response(data, expected_detail="no users with embeddings")
+        assert_error_response(data, expected_detail="no users to checkin")
     
     def test_checkin_similarity_score_returned(
         self,
@@ -351,9 +353,9 @@ class TestCheckin:
             )
         
         # Should either succeed with different user or fail with threshold error
-        assert response.status_code in [200, 401]
-        
-        if response.status_code == 401:
+        assert response.status_code in [200, 421]
+
+        if response.status_code == 421:
             data = response.json()
             assert_error_response(data, expected_detail="not recognized")
     
@@ -381,10 +383,10 @@ class TestCheckin:
         from app.db.models.user import User
         from app.db.models.event import Event
         from app.db.models.session import Session as SessionModel
-        from app.db.models.attendance import Attendance
+        from app.db.models.attendance import Attendance, AttendanceStatus
         from app.core.security.hashHelper import HashHelper
         from datetime import datetime, timedelta, timezone
-        
+
         # Create multiple users with different embeddings
         user1 = User(
             first_name="User",
@@ -418,14 +420,14 @@ class TestCheckin:
         test_db.commit()
         test_db.refresh(event)
         
-        session = SessionModel(event_id=event.id)
+        session = SessionModel(event_id=event.id, sequence_number=1)
         test_db.add(session)
         test_db.commit()
         test_db.refresh(session)
         
         # Create attendance for both users
-        att1 = Attendance(session_id=session.id, user_id=user1.id, status="ABSENT")
-        att2 = Attendance(session_id=session.id, user_id=user2.id, status="ABSENT")
+        att1 = Attendance(session_id=session.id, user_id=user1.id, status=AttendanceStatus.ABSENT)
+        att2 = Attendance(session_id=session.id, user_id=user2.id, status=AttendanceStatus.ABSENT)
         test_db.add_all([att1, att2])
         test_db.commit()
         
@@ -495,7 +497,7 @@ class TestSessionFlow:
             headers=headers
         )
         assert session_response.status_code == 200
-        session_id = session_response.json()["id"]
+        session_id = session_response.json()["session"]["id"]
         
         # 3. Check-in with face
         with open(test_image_path, "rb") as img:
@@ -506,4 +508,4 @@ class TestSessionFlow:
             )
         
         # Check-in might succeed or fail depending on face match
-        assert checkin_response.status_code in [200, 401, 422]
+        assert checkin_response.status_code in [200, 401, 421, 422]

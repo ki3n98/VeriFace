@@ -17,7 +17,7 @@ async def create_session_attendance(
     session_data : SessionInCreate, 
     user: UserOutput = Depends(get_current_user), 
     session: Session = Depends(get_db)
-    ):
+    ) -> dict:
     try:
         if not check_permission(
             user_id=user.id, 
@@ -35,7 +35,10 @@ async def create_session_attendance(
         #create attendance
         AttendanceService(session=session).add_users_for_session(session_id=event_session.id)
 
-        return event_session
+        return {
+            "success": True,
+            "session": SessionOutput.model_validate(event_session, from_attributes=True)
+        }
         
     
     except Exception as error:
