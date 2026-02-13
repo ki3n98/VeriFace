@@ -241,7 +241,8 @@ def test_session(test_db: Session, test_event):
     from app.db.models.session import Session as SessionModel
     
     session_obj = SessionModel(
-        event_id=test_event.id
+        event_id=test_event.id,
+        sequence_number=1
     )
     
     test_db.add(session_obj)
@@ -254,12 +255,12 @@ def test_session(test_db: Session, test_event):
 @pytest.fixture
 def test_attendance(test_db: Session, test_session, test_user_with_embedding):
     """Create a test attendance record."""
-    from app.db.models.attendance import Attendance
+    from app.db.models.attendance import Attendance, AttendanceStatus
     
     attendance = Attendance(
         session_id=test_session.id,
         user_id=test_user_with_embedding.id,
-        status="ABSENT"
+        status=AttendanceStatus.ABSENT
     )
     
     test_db.add(attendance)

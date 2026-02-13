@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from app.db.models.attendance import Attendance, AttendanceStatus
 from app.db.models.session import Session as SessionModel
 from app.db.models.event_user import EventUser
+from app.db.models.user import User
 
 
 class AttendanceRepository(BaseRepository):
@@ -26,7 +27,7 @@ class AttendanceRepository(BaseRepository):
             .scalar()
         )
 
-
+    
         if event_id is None:
             raise ValueError(f"Session {session_id} not found")
 
@@ -77,6 +78,7 @@ class AttendanceRepository(BaseRepository):
             self.session.refresh(att)
 
         return new_attendances
+
 
 
 

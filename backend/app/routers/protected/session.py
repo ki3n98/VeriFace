@@ -2,6 +2,7 @@ from app.db.schema.user import UserOutput
 from app.db.schema.session import SessionInCreate, SessionOutput
 from app.service.sessionService import SessionService
 from app.service.attendantService import AttendanceService
+from app.service.sessionService import SessionService
 from app.core.database import get_db
 from app.util.protectRoute import get_current_user
 from app.util.permission import check_permission
@@ -16,7 +17,7 @@ async def create_session_attendance(
     session_data : SessionInCreate, 
     user: UserOutput = Depends(get_current_user), 
     session: Session = Depends(get_db)
-    ):
+    ) -> dict:
     try:
         if not check_permission(
             user_id=user.id, 
@@ -34,7 +35,10 @@ async def create_session_attendance(
         #create attendance
         AttendanceService(session=session).add_users_for_session(session_id=event_session.id)
 
-        return event_session
+        return {
+            "success": True,
+            "session": SessionOutput.model_validate(event_session, from_attributes=True)
+        }
         
     
     except Exception as error:
@@ -49,16 +53,22 @@ async def check_in_with_face(
     upload_image: UploadFile = File(...),
     session: Session = Depends(get_db),
 ):
+    try:
     # Convert image -> face embedding (ensures 1 face, size, etc.)
-    embedding = await upload_img_to_embedding(upload_image)
-    embedding = [float(x) for x in embedding]  # ensure JSON-serializable list
+        embedding = await upload_img_to_embedding(upload_image)
+        embedding = [float(x) for x in embedding]  # ensure JSON-serializable list
 
-    # Use service to find matching user and check them in
-    service = AttendanceService(session=session)
-    result = service.check_in_with_embedding(session_id=session_id, face_embedding=embedding)
+        # Use service to find matching user and check them in
+        service = AttendanceService(session=session)
+        result = service.check_in_with_embedding(session_id=session_id, face_embedding=embedding)
+    except Exception as error:
+        print(error)
+        raise error 
 
     return result
 
+
+        
     
 
 

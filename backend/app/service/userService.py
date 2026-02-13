@@ -12,11 +12,26 @@ class UserService:
 
 
     def signup(self, user_details: UserInCreate) -> UserOutput:
-        if self.__userRepository.user_exist_by_email(email=user_details.email):
+        existing_user = self.__userRepository.get_user_by_email(email=user_details.email)
+
+        if existing_user:
+            if existing_user.password is None:
+                # Auto-created user completing registration — set their password
+                hashed_password = HashHelper.get_password_hash(plain_pw=user_details.password)
+                updates = {"password": hashed_password}
+                if user_details.first_name:
+                    updates["first_name"] = user_details.first_name
+                if user_details.last_name:
+                    updates["last_name"] = user_details.last_name
+                updated_user = self.__userRepository.update_user_by_id(
+                    id=existing_user.id, updates=updates
+                )
+                return UserOutput.model_validate(updated_user, from_attributes=True)
             raise HTTPException(status_code=400, detail="Email exist. Please Login")
 
-        hashed_password = HashHelper.get_password_hash(plain_pw=user_details.password)
-        user_details.password = hashed_password
+        # New user
+        if user_details.password:
+            user_details.password = HashHelper.get_password_hash(plain_pw=user_details.password)
         return self.__userRepository.create_user(user_data=user_details)
 
 

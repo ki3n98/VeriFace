@@ -79,6 +79,17 @@ class EventUserRepository(BaseRepository):
         return user_outputs
     
 
+    def get_unregistered_users_from_event(self, event_id: int) -> list:
+        """Return users in the event who have not completed registration (password is NULL)."""
+        users = (
+            self.session.query(User)
+            .join(EventUser, User.id == EventUser.user_id)
+            .filter(EventUser.event_id == event_id)
+            .filter(User.password == None)
+            .all()
+        )
+        return users
+
     def get_events_for_user(self, user_id: int) -> List[EventOutput]:
         """Return all events that a given user belongs to."""
         events = (

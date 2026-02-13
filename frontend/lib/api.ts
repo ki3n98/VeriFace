@@ -243,6 +243,16 @@ class ApiClient {
     );
   }
 
+  async sendInviteEmails(eventId: number) {
+    return this.post<{
+      success: boolean;
+      message: string;
+      sent_count: number;
+      failed_count: number;
+      failed_emails: string[];
+    }>(`/protected/event/${eventId}/sendInviteEmails`);
+  }
+
   // User Settings
   async getUserSettings() {
     return this.get<{

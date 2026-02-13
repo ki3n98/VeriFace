@@ -4,13 +4,14 @@ from app.util.protectRoute import get_current_user
 from app.util.permission import check_permission
 from app.util.csv_processor import validate_csv_file, parse_and_validate_csv
 from app.db.schema.user import UserOutput
-from app.db.schema.event import EventInCreate, EventToRemove, EventId, EventOutput
+from app.db.schema.event import EventInCreate, EventToRemove, EventId, EventOutput, InviteEmailResponse
 from app.db.schema.EventUser import EventUserCreate, EventUserRemove, MemberAddRequest, MemberRemoveRequest
 from app.db.schema.user import UserInCreate
 from app.db.schema.csv import CSVUploadSuccess, CSVUploadFailure, CSVRowError
 from app.service.eventService import EventService
 from app.service.eventUserService import EventUserService
 from app.service.userService import UserService
+from app.service.emailService import EmailService
 
 from sqlalchemy.orm import Session
 from typing import List, Union
@@ -271,15 +272,12 @@ async def add_single_member(
         try:
             member_user = user_service.get_user_by_email(user_email=email)
         except HTTPException:
-            # User doesn't exist, create them
+            # User doesn't exist, create them without a password
             is_new_user = True
-            from app.util.csv_processor import generate_random_password
-            temp_password = generate_random_password()
             user_data = UserInCreate(
                 first_name=first_name,
                 last_name=last_name,
                 email=email,
-                password=temp_password
             )
             member_user = user_service.signup(user_details=user_data)
         
@@ -344,4 +342,74 @@ async def remove_member(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to remove member: {str(error)}"
+        )
+    
+@eventRouter.post("/{event_id}/addRemainingMembers")
+async def add_remaining_members(
+    event_id: int,
+    session: Session = Depends(get_db),
+    user: UserOutput = Depends(get_current_user)
+):  
+    try:
+        if not check_permission(user_id=user.id, event_id=event_id, session=session):
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to add users to that event"
+            )
+        return EventService(session=session).add_new_users(
+            event_id,
+            )
+
+    except Exception as error:
+        print(error)
+        raise error
+
+
+@eventRouter.post("/{event_id}/sendInviteEmails", response_model=InviteEmailResponse)
+async def send_invite_emails(
+    event_id: int,
+    user: UserOutput = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> InviteEmailResponse:
+    """Send invite emails to all unregistered members in an event."""
+    try:
+        if not check_permission(user_id=user.id, event_id=event_id, session=session):
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to send invites for this event"
+            )
+
+        event = EventService(session=session).get_event_by_id(event_id)
+        unregistered_users = EventUserService(session=session).get_unregistered_users(event_id=event_id)
+
+        if not unregistered_users:
+            return InviteEmailResponse(
+                success=True,
+                message="No unregistered users found. All members have already signed up.",
+                sent_count=0,
+                failed_count=0,
+            )
+
+        email_service = EmailService()
+        result = email_service.send_bulk_invites(
+            recipients=unregistered_users,
+            event_name=event.event_name,
+        )
+
+        total = result["sent_count"] + result["failed_count"]
+        return InviteEmailResponse(
+            success=result["failed_count"] == 0,
+            message=f"Sent {result['sent_count']} of {total} invite emails.",
+            sent_count=result["sent_count"],
+            failed_count=result["failed_count"],
+            failed_emails=result["failed_emails"],
+        )
+
+    except HTTPException:
+        raise
+    except Exception as error:
+        print(error)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send invite emails: {str(error)}"
         )

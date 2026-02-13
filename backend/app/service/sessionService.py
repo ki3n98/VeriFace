@@ -9,6 +9,7 @@ from app.db.repository.session import SessionRepository
 class SessionService:
     def __init__(self, session):
         self.__session_repository = SessionRepository(session=session)
+        self.session = session
 
 
     def create_session(self, session_data: SessionInCreate) -> SessionEvent:
@@ -32,3 +33,6 @@ class SessionService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Session with id={session_id} not found.",
             )
+        
+
+        

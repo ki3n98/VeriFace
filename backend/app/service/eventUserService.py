@@ -6,8 +6,6 @@ from app.db.schema.EventUser import EventUserCreate, EventUserRemove
 from app.db.schema.event import EventOutput
 from app.db.schema.user import UserOutput, UserInCreate
 from app.db.schema.csv import CSVUploadSuccess, CSVUploadFailure, CSVRowError
-from app.util.csv_processor import generate_random_password
-
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
@@ -63,7 +61,12 @@ class EventUserService:
         except Exception as error:
             print(error)
             raise error
-        
+
+
+    def get_unregistered_users(self, event_id: int) -> list:
+        """Return users in the event who have not completed registration."""
+        return self.__EventUserRepository.get_unregistered_users_from_event(event_id=event_id)
+
 
     def bulk_add_users_from_csv(
             self,
@@ -142,13 +145,11 @@ class EventUserService:
                         continue
                     
                     if operation['is_new_user']:
-                        # Create new user
-                        temp_password = generate_random_password()
+                        # Create new user without a password
                         user_data = UserInCreate(
                             first_name=operation['first_name'],
                             last_name=operation['last_name'],
                             email=operation['email'],
-                            password=temp_password
                         )
                         user = user_service.signup(user_details=user_data)
                         operation['user_id'] = user.id
