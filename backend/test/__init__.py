@@ -1,3 +1,0 @@
-"""
-VeriFace backend test package.
-"""
