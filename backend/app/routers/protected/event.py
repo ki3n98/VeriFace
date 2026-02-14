@@ -227,12 +227,14 @@ async def upload_users_csv(
 
         return result
     
-    # except HTTPException:
-    #     raise
+    except HTTPException as error:
+        print(error)
+        raise error
+    
     except Exception as error:
         print(error)
         raise HTTPException(
-            status_code=500,
+            status_code=422,
             detail=f"Failed to process CSV upload: {str(error)}"
         )
 
