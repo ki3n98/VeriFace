@@ -1,6 +1,6 @@
 import cv2
 import requests
-from config import CHECKIN_ENDPOINT, CAMERA_INDEX, CHECKIN_WINDOW_NAME
+from config import CHECKIN_ENDPOINT, CAMERA_INDEX, CAMERA_BACKEND, CHECKIN_WINDOW_NAME, warmup_camera
 
 
 def run_checkin_loop(session_id: int) -> None:
@@ -8,10 +8,11 @@ def run_checkin_loop(session_id: int) -> None:
     Opens camera for face check-in. Users press SPACE to capture a photo,
     which is sent to the check-in API. Press 'q' to return to QR scanning.
     """
-    cap = cv2.VideoCapture(CAMERA_INDEX)
+    cap = cv2.VideoCapture(CAMERA_INDEX, CAMERA_BACKEND)
     if not cap.isOpened():
         raise RuntimeError("Cannot open camera")
 
+    warmup_camera(cap)
     print(f"Check-in mode for session {session_id}")
     print("Press SPACE to capture face, 'q' to go back to QR scan")
 

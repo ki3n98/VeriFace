@@ -1,5 +1,5 @@
 import cv2
-from config import CAMERA_INDEX, QR_SCAN_WINDOW_NAME
+from config import CAMERA_INDEX, CAMERA_BACKEND, QR_SCAN_WINDOW_NAME
 
 
 def scan_for_session_id() -> int:
@@ -8,7 +8,7 @@ def scan_for_session_id() -> int:
     Returns the session_id once detected. Blocks until a valid QR is found
     or the user presses 'q' to quit (raises SystemExit).
     """
-    cap = cv2.VideoCapture(CAMERA_INDEX)
+    cap = cv2.VideoCapture(CAMERA_INDEX, CAMERA_BACKEND)
     detector = cv2.QRCodeDetector()
 
     if not cap.isOpened():
