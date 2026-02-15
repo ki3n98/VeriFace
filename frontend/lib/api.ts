@@ -243,6 +243,24 @@ class ApiClient {
     );
   }
 
+  async sendInviteEmails(eventId: number) {
+    return this.post<{
+      success: boolean;
+      message: string;
+      sent_count: number;
+      failed_count: number;
+      failed_emails: string[];
+    }>(`/protected/event/${eventId}/sendInviteEmails`);
+  }
+
+  // Sessions
+  async createSession(eventId: number) {
+    return this.post<{
+      success: boolean;
+      session: { id: number; event_id: number; sequence_number: number };
+    }>("/protected/session/createSession", { event_id: eventId });
+  }
+
   // User Settings
   async getUserSettings() {
     return this.get<{

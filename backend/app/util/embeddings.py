@@ -35,6 +35,8 @@ async def has_embedding(session, user_id: int) -> bool:
     try:
         user = session.get(User, user_id)
         #print(user.embedding)
+        if not user.embedding:
+            return False
         return len(user.embedding) > 1
     
     except Exception as error: 

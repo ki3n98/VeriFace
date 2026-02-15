@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { PanelLeft, Upload, QrCode, Download, TrendingUp, TrendingDown, AlertCircle, Users, UserPlus } from "lucide-react"
+import { PanelLeft, Upload, QrCode, Download, TrendingUp, TrendingDown, AlertCircle, Users, UserPlus, Mail } from "lucide-react"
 import {
   Bar,
   BarChart,
@@ -24,6 +24,7 @@ import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { apiClient } from "@/lib/api"
 import { AddMemberModal } from "@/app/events/components/AddMemberModal"
+import { QRCodeModal } from "@/app/dashboard/components/QRCodeModal"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { X } from "lucide-react"
 
@@ -102,6 +103,10 @@ export default function Dashboard() {
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false)
   const [memberToDelete, setMemberToDelete] = useState<EventMember | null>(null)
   const [isDeletingMember, setIsDeletingMember] = useState(false)
+  const [isSendingInvites, setIsSendingInvites] = useState(false)
+  const [isQRModalOpen, setIsQRModalOpen] = useState(false)
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null)
+  const [isCreatingSession, setIsCreatingSession] = useState(false)
   const eventId = searchParams?.get('eventId') ? parseInt(searchParams.get('eventId')!) : null
 
   useEffect(() => {
@@ -179,6 +184,50 @@ export default function Dashboard() {
       throw error
     } finally {
       setIsDeletingMember(false)
+    }
+  }
+
+  const handleSendInvites = async () => {
+    if (!eventId) return
+    const confirmed = confirm(
+      "This will send invite emails to all members who haven't registered yet. Continue?"
+    )
+    if (!confirmed) return
+
+    setIsSendingInvites(true)
+    try {
+      const response = await apiClient.sendInviteEmails(eventId)
+      if (response.error) {
+        alert(`Failed to send invites: ${response.error}`)
+      } else if (response.data) {
+        alert(response.data.message)
+      }
+    } catch (error) {
+      console.error("Error sending invites:", error)
+      alert("Failed to send invite emails. Please try again.")
+    } finally {
+      setIsSendingInvites(false)
+    }
+  }
+
+  const handleGenerateQR = async () => {
+    if (!eventId) return
+    setIsCreatingSession(true)
+    try {
+      const response = await apiClient.createSession(eventId)
+      if (response.error) {
+        alert(`Failed to create session: ${response.error}`)
+        return
+      }
+      if (response.data?.session?.id) {
+        setActiveSessionId(response.data.session.id)
+        setIsQRModalOpen(true)
+      }
+    } catch (error) {
+      console.error("Error creating session:", error)
+      alert("Failed to create session. Please try again.")
+    } finally {
+      setIsCreatingSession(false)
     }
   }
 
@@ -386,9 +435,23 @@ export default function Dashboard() {
                 <UserPlus className="h-4 w-4 mr-2" />
                 Add Member
               </Button>
-              <Button variant="outline" className="border-primary text-primary hover:bg-primary/10 bg-transparent">
+              <Button
+                variant="outline"
+                className="border-primary text-primary hover:bg-primary/10 bg-transparent"
+                onClick={handleGenerateQR}
+                disabled={isCreatingSession}
+              >
                 <QrCode className="h-4 w-4 mr-2" />
-                Generate Token
+                {isCreatingSession ? "Creating..." : "Start Session"}
+              </Button>
+              <Button
+                variant="outline"
+                className="border-primary text-primary hover:bg-primary/10 bg-transparent"
+                onClick={handleSendInvites}
+                disabled={isSendingInvites}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                {isSendingInvites ? "Sending..." : "Send Invite Emails"}
               </Button>
             </>
           )}
@@ -589,6 +652,13 @@ export default function Dashboard() {
           onMemberAdded={handleMemberAdded}
         />
       )}
+
+      {/* QR Code Modal */}
+      <QRCodeModal
+        isOpen={isQRModalOpen}
+        onClose={() => setIsQRModalOpen(false)}
+        sessionId={activeSessionId}
+      />
 
       {/* Delete Member Confirmation */}
       <DeleteConfirmDialog

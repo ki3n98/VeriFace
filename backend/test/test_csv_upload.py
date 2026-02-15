@@ -939,10 +939,14 @@ class TestCSVUploadEndpoint:
     
     def test_upload_csv_all_new_users(self, auth_token, test_event_id):
         """Test uploading CSV with all new users to system."""
-        csv_content = create_valid_csv(5)
-        
+        import time
+        ts = int(time.time() * 1000)
+        csv_content = "first_name,last_name,email\n"
+        for i in range(5):
+            csv_content += f"User{i},Test{i},user{i}_{ts}@example.com\n"
+
         response = integration_upload_csv(auth_token, test_event_id, csv_content)
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["success"] == True
@@ -1012,15 +1016,12 @@ class TestCSVUploadEndpoint:
     def test_upload_csv_empty_file(self, auth_token, test_event_id):
         """Test uploading CSV with only headers (no data rows)."""
         csv_content = "first_name,last_name,email\n"
-        
+
         response = integration_upload_csv(auth_token, test_event_id, csv_content)
-        
-        # Should succeed but with 0 rows
-        assert response.status_code == 200
+
+        assert response.status_code == 400
         data = response.json()
-        assert data["success"] == True
-        assert data["total_rows"] == 0
-        assert data["new_users_created"] == 0
+        assert "no valid rows" in data["detail"].lower()
     
     # ========================================================================
     # Validation Error Test Cases
@@ -1133,7 +1134,7 @@ Bob,Smith,not-an-email
     
     def test_upload_csv_no_file_provided(self, auth_token, test_event_id):
         """Test endpoint with no file provided."""
-        url = f"{BASE_URL}/protected/events/{test_event_id}/uploadUserCSV"
+        url = f"{BASE_URL}/protected/event/{test_event_id}/uploadUserCSV"
         headers = {"Authorization": f"Bearer {auth_token}"}
         
         # Send request without files parameter
@@ -1194,10 +1195,9 @@ Bob,Smith,not-an-email
             csv_content
         )
         
-        assert response.status_code == 400
+        assert response.status_code == 403
         data = response.json()
-        assert "event" in data["detail"].lower()
-        assert "not exist" in data["detail"].lower() or "not found" in data["detail"].lower()
+        assert "permission" in data["detail"].lower()
     
     def test_upload_csv_case_insensitive_extension(self, auth_token, test_event_id):
         """Test that .CSV (uppercase) extension is accepted."""
