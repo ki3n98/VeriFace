@@ -261,6 +261,34 @@ class ApiClient {
     }>("/protected/session/createSession", { event_id: eventId });
   }
 
+  async getSessions(eventId: number) {
+    return this.post<{
+      success: boolean;
+      sessions: Array<{ id: number; event_id: number; sequence_number: number }>;
+    }>("/protected/session/getSessions", { event_id: eventId });
+  }
+
+  async getSessionAttendance(sessionId: number) {
+    return this.post<{
+      success: boolean;
+      attendance: Array<{
+        user_id: number;
+        first_name: string;
+        last_name: string;
+        email: string;
+        status: string;
+        check_in_time: string | null;
+      }>;
+      summary: {
+        present: number;
+        late: number;
+        absent: number;
+        excused: number;
+        total: number;
+      };
+    }>("/protected/session/getAttendance", { session_id: sessionId });
+  }
+
   // User Settings
   async getUserSettings() {
     return this.get<{

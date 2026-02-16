@@ -18,6 +18,15 @@ class AttendanceService:
 
     def add_users_for_session(self, session_id: int) -> list[Attendance]:
         return self.__repo.add_users(session_id)
+
+    def get_session_attendance(self, session_id: int) -> dict:
+        records = self.__repo.get_attendance_by_session_id(session_id)
+        summary = {"present": 0, "late": 0, "absent": 0, "excused": 0, "total": len(records)}
+        for r in records:
+            status_val = r["status"].value if hasattr(r["status"], "value") else r["status"]
+            if status_val in summary:
+                summary[status_val] += 1
+        return {"attendance": records, "summary": summary}
     
 
     def check_in_with_embedding(

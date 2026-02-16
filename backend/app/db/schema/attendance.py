@@ -10,3 +10,12 @@ class UserInAttendance(BaseModel):
     check_out_time : Union[datetime, None] = None
     status: AttendanceStatus = AttendanceStatus.ABSENT
 
+
+class AttendanceWithUser(BaseModel):
+    user_id: int
+    first_name: str
+    last_name: str
+    email: str
+    status: AttendanceStatus
+    check_in_time: Union[datetime, None] = None
+

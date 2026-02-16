@@ -24,6 +24,9 @@ class SessionService:
             )
 
 
+    def get_sessions_by_event_id(self, event_id: int) -> list:
+        return self.__session_repository.get_session_by_event_id(event_id)
+
     def delete_session(self, session_id: int) -> None:
 
         try:

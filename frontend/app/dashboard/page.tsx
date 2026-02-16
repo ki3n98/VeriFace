@@ -59,6 +59,23 @@ interface EventMember {
   email: string
 }
 
+interface AttendanceRecord {
+  user_id: number
+  first_name: string
+  last_name: string
+  email: string
+  status: string
+  check_in_time: string | null
+}
+
+interface AttendanceSummary {
+  present: number
+  late: number
+  absent: number
+  excused: number
+  total: number
+}
+
 const COLORS = {
   present: "hsl(142, 71%, 45%)",
   late: "hsl(38, 92%, 50%)",
@@ -107,6 +124,12 @@ export default function Dashboard() {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false)
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null)
   const [isCreatingSession, setIsCreatingSession] = useState(false)
+  const [sessions, setSessions] = useState<Array<{ id: number; event_id: number; sequence_number: number }>>([])
+  const [loadingSessions, setLoadingSessions] = useState(false)
+  const [activeTab, setActiveTab] = useState<"overview" | number>("overview")
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([])
+  const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null)
+  const [loadingAttendance, setLoadingAttendance] = useState(false)
   const eventId = searchParams?.get('eventId') ? parseInt(searchParams.get('eventId')!) : null
 
   useEffect(() => {
@@ -152,6 +175,62 @@ export default function Dashboard() {
     }
     fetchMembers()
   }, [eventId])
+
+  useEffect(() => {
+    async function fetchSessions() {
+      if (!eventId) {
+        setSessions([])
+        return
+      }
+
+      setLoadingSessions(true)
+      try {
+        const response = await apiClient.getSessions(eventId)
+        if (response.error) {
+          console.error('Failed to fetch sessions:', response.error)
+          setSessions([])
+        } else {
+          setSessions(response.data?.sessions || [])
+        }
+      } catch (error) {
+        console.error('Error fetching sessions:', error)
+        setSessions([])
+      } finally {
+        setLoadingSessions(false)
+      }
+    }
+    fetchSessions()
+  }, [eventId])
+
+  useEffect(() => {
+    async function fetchAttendance() {
+      if (activeTab === "overview" || typeof activeTab !== "number") {
+        setAttendance([])
+        setAttendanceSummary(null)
+        return
+      }
+
+      setLoadingAttendance(true)
+      try {
+        const response = await apiClient.getSessionAttendance(activeTab)
+        if (response.error) {
+          console.error('Failed to fetch attendance:', response.error)
+          setAttendance([])
+          setAttendanceSummary(null)
+        } else {
+          setAttendance(response.data?.attendance || [])
+          setAttendanceSummary(response.data?.summary || null)
+        }
+      } catch (error) {
+        console.error('Error fetching attendance:', error)
+        setAttendance([])
+        setAttendanceSummary(null)
+      } finally {
+        setLoadingAttendance(false)
+      }
+    }
+    fetchAttendance()
+  }, [activeTab])
 
   const handleMemberAdded = () => {
     // Refresh members list
@@ -222,12 +301,41 @@ export default function Dashboard() {
       if (response.data?.session?.id) {
         setActiveSessionId(response.data.session.id)
         setIsQRModalOpen(true)
+        // Refresh sessions list
+        const sessionsResponse = await apiClient.getSessions(eventId)
+        if (!sessionsResponse.error && sessionsResponse.data?.sessions) {
+          setSessions(sessionsResponse.data.sessions)
+        }
       }
     } catch (error) {
       console.error("Error creating session:", error)
       alert("Failed to create session. Please try again.")
     } finally {
       setIsCreatingSession(false)
+    }
+  }
+
+  const handleViewQR = (sessionId: number) => {
+    setActiveSessionId(sessionId)
+    setIsQRModalOpen(true)
+  }
+
+  const handleSelectTab = (tab: "overview" | number) => {
+    setActiveTab(tab)
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "present":
+        return <Badge className="bg-emerald-500 hover:bg-emerald-600">Present</Badge>
+      case "late":
+        return <Badge className="bg-amber-500 hover:bg-amber-600">Late</Badge>
+      case "absent":
+        return <Badge className="bg-red-500 hover:bg-red-600">Absent</Badge>
+      case "excused":
+        return <Badge className="bg-blue-500 hover:bg-blue-600">Excused</Badge>
+      default:
+        return <Badge className="bg-gray-500 hover:bg-gray-600">{status}</Badge>
     }
   }
 
@@ -462,185 +570,332 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Charts Section */}
-        <div className="grid grid-cols-3 gap-6 mb-8">
-          {/* Weekly Attendance Trends */}
-          <Card className="col-span-2">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Weekly Attendance Trends</CardTitle>
-                <div className="flex gap-2">
-                  <Button
-                    variant={viewMode === "day" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setViewMode("day")}
-                  >
-                    Day
-                  </Button>
-                  <Button
-                    variant={viewMode === "week" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setViewMode("week")}
-                    className="bg-primary hover:bg-primary/90"
-                  >
-                    Week
-                  </Button>
-                  <Button
-                    variant={viewMode === "month" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setViewMode("month")}
-                  >
-                    Month
+        {/* Tabs */}
+        {eventId && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 border-b mb-0">
+              <button
+                onClick={() => handleSelectTab("overview")}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === "overview"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"
+                }`}
+              >
+                Overview
+              </button>
+              {[...sessions].sort((a, b) => b.sequence_number - a.sequence_number).map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => handleSelectTab(s.id)}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === s.id
+                      ? "border-primary text-primary"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"
+                  }`}
+                >
+                  Session #{s.sequence_number}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Overview Tab Content */}
+        {activeTab === "overview" && (
+          <>
+            {/* Charts Section */}
+            <div className="grid grid-cols-3 gap-6 mb-8">
+              {/* Weekly Attendance Trends */}
+              <Card className="col-span-2">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Weekly Attendance Trends</CardTitle>
+                    <div className="flex gap-2">
+                      <Button
+                        variant={viewMode === "day" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setViewMode("day")}
+                      >
+                        Day
+                      </Button>
+                      <Button
+                        variant={viewMode === "week" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setViewMode("week")}
+                        className="bg-primary hover:bg-primary/90"
+                      >
+                        Week
+                      </Button>
+                      <Button
+                        variant={viewMode === "month" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setViewMode("month")}
+                      >
+                        Month
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={weeklyData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="day" />
+                        <YAxis />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Legend />
+                        <Bar dataKey="present" fill={COLORS.present} name="Present" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="late" fill={COLORS.late} name="Late" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="absent" fill={COLORS.absent} name="Absent" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Today's Distribution */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Today's Distribution</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[220px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={distributionData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={2}
+                          dataKey="value"
+                        >
+                          {distributionData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[entry.name.toLowerCase() as keyof typeof COLORS]} />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    {distributionData.map((item) => (
+                      <div key={item.name} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: COLORS[item.name.toLowerCase() as keyof typeof COLORS] }}
+                          />
+                          <span>{item.name}</span>
+                        </div>
+                        <span className="font-medium">
+                          {item.value} ({item.percentage}%)
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Members Table */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Members</CardTitle>
+                  <Button className="bg-primary hover:bg-primary/90">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export Report
                   </Button>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={weeklyData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="day" />
-                    <YAxis />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                    <Bar dataKey="present" fill={COLORS.present} name="Present" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="late" fill={COLORS.late} name="Late" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="absent" fill={COLORS.absent} name="Absent" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Student</TableHead>
+                      <TableHead>Student ID</TableHead>
+                      <TableHead className="w-12">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loadingMembers ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                          Loading members...
+                        </TableCell>
+                      </TableRow>
+                    ) : members.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                          {eventId ? "No members added yet. Click 'Add Member' to get started." : "Select an event to view members."}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      members.map((member) => (
+                        <TableRow key={member.id} className="group">
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarFallback className="bg-primary text-white">
+                                  {getInitials(member.first_name, member.last_name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="font-medium text-foreground2">
+                                  {member.first_name} {member.last_name}
+                                </div>
+                                <div className="text-sm text-muted-foreground">{member.email}</div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {formatStudentId(member.id)}
+                          </TableCell>
+                          <TableCell>
+                            <button
+                              onClick={(e) => handleDeleteMemberClick(member, e)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full bg-red-500 hover:bg-red-600 text-white"
+                              aria-label={`Remove ${member.first_name} ${member.last_name}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </>
+        )}
 
-          {/* Today's Distribution */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Today's Distribution</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[220px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={distributionData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {distributionData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[entry.name.toLowerCase() as keyof typeof COLORS]} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="mt-4 space-y-2">
-                {distributionData.map((item) => (
-                  <div key={item.name} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: COLORS[item.name.toLowerCase() as keyof typeof COLORS] }}
-                      />
-                      <span>{item.name}</span>
-                    </div>
-                    <span className="font-medium">
-                      {item.value} ({item.percentage}%)
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Attendance Table */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Today's Attendance List</CardTitle>
-              <Button className="bg-primary hover:bg-primary/90">
-                <Download className="h-4 w-4 mr-2" />
-                Export Report
+        {/* Session Tab Content */}
+        {typeof activeTab === "number" && (
+          <div>
+            {/* Session Actions */}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">
+                Session #{sessions.find((s) => s.id === activeTab)?.sequence_number}
+              </h3>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-primary text-primary hover:bg-primary/10"
+                onClick={() => handleViewQR(activeTab)}
+              >
+                <QrCode className="h-4 w-4 mr-2" />
+                View QR
               </Button>
             </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Student ID</TableHead>
-                  <TableHead>Class</TableHead>
-                  <TableHead>Check-in Time</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Face Match</TableHead>
-                  <TableHead className="w-12">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loadingMembers ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      Loading members...
-                    </TableCell>
-                  </TableRow>
-                ) : members.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      {eventId ? "No members added yet. Click 'Add Member' to get started." : "Select an event to view members."}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  members.map((member) => (
-                    <TableRow key={member.id} className="group">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarFallback className="bg-primary text-white">
-                              {getInitials(member.first_name, member.last_name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium text-foreground2">
-                              {member.first_name} {member.last_name}
-                            </div>
-                            <div className="text-sm text-muted-foreground">{member.email}</div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {formatStudentId(member.id)}
-                      </TableCell>
-                      <TableCell>—</TableCell>
-                      <TableCell>—</TableCell>
-                      <TableCell>
-                        <Badge className="bg-gray-500 hover:bg-gray-600">
-                          Not Checked In
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">—</TableCell>
-                      <TableCell>
-                        <button
-                          onClick={(e) => handleDeleteMemberClick(member, e)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full bg-red-500 hover:bg-red-600 text-white"
-                          aria-label={`Remove ${member.first_name} ${member.last_name}`}
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </TableCell>
+
+            {/* Attendance Summary */}
+            {attendanceSummary && (
+              <div className="grid grid-cols-4 gap-4 mb-6">
+                <Card>
+                  <CardContent className="pt-4 pb-4">
+                    <div className="flex items-center gap-2 text-emerald-500 mb-1">
+                      <Users className="h-4 w-4" />
+                      <span className="text-xs font-medium text-muted-foreground">Present</span>
+                    </div>
+                    <div className="text-2xl font-bold text-foreground2">{attendanceSummary.present}</div>
+                    <div className="text-xs text-muted-foreground">of {attendanceSummary.total}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4 pb-4">
+                    <div className="flex items-center gap-2 text-amber-500 mb-1">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="text-xs font-medium text-muted-foreground">Late</span>
+                    </div>
+                    <div className="text-2xl font-bold text-foreground2">{attendanceSummary.late}</div>
+                    <div className="text-xs text-muted-foreground">of {attendanceSummary.total}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4 pb-4">
+                    <div className="flex items-center gap-2 text-red-500 mb-1">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="text-xs font-medium text-muted-foreground">Absent</span>
+                    </div>
+                    <div className="text-2xl font-bold text-foreground2">{attendanceSummary.absent}</div>
+                    <div className="text-xs text-muted-foreground">of {attendanceSummary.total}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4 pb-4">
+                    <div className="flex items-center gap-2 text-blue-500 mb-1">
+                      <Users className="h-4 w-4" />
+                      <span className="text-xs font-medium text-muted-foreground">Total</span>
+                    </div>
+                    <div className="text-2xl font-bold text-foreground2">{attendanceSummary.total}</div>
+                    <div className="text-xs text-muted-foreground">members</div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Attendance Table */}
+            <Card>
+              <CardContent className="pt-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Student</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Check-in Time</TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {loadingAttendance ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                          Loading attendance...
+                        </TableCell>
+                      </TableRow>
+                    ) : attendance.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                          No attendance records for this session.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      attendance.map((record) => (
+                        <TableRow key={record.user_id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarFallback className="bg-primary text-white">
+                                  {getInitials(record.first_name, record.last_name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="font-medium text-foreground2">
+                                  {record.first_name} {record.last_name}
+                                </div>
+                                <div className="text-sm text-muted-foreground">{record.email}</div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(record.status)}</TableCell>
+                          <TableCell>
+                            {record.check_in_time
+                              ? new Date(record.check_in_time).toLocaleTimeString()
+                              : "—"}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </main>
 
       {/* Add Member Modal */}
