@@ -28,11 +28,6 @@ async def upload_img_to_embedding(upload_image: UploadFile = File(...)):
 
     embeddings = await run_in_threadpool(model.img_to_embedding, img)
 
-    if len(embeddings) > 2:
-        raise HTTPException(status_code=422, detail="Detected 2 or more faces.")
-    if len(embeddings) == 0:
-        raise HTTPException(status_code=422, detail="Cannot detect a face.")
-
     return embeddings[0]
 
 

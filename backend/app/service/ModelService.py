@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from facenet_pytorch import MTCNN, InceptionResnetV1
+from fastapi import HTTPException
 import torch.nn.functional as F
 
 
@@ -13,6 +14,8 @@ class ModelService:
 
     def img_to_embedding(self, img):
         face = self.mtcnn(img)
+        if not face:
+            raise HTTPException(status_code = 400, detail = 'No face detected')
         with torch.no_grad():
             emb = self.embedder(face.unsqueeze(0).to(self.device))
             emb = torch.nn.functional.normalize(emb,p=2,dim =1)
