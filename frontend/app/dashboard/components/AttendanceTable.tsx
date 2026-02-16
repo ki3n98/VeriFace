@@ -8,7 +8,7 @@ interface AttendanceRecord {
   studentId: string;
   class: string;
   checkInTime: string;
-  status: 'on_time' | 'late' | 'absent' | 'excused';
+  status: 'on_time' | 'late' | 'absent';
   faceMatch: number | null;
   avatar: string;
 }
@@ -27,7 +27,6 @@ export default function AttendanceTable({ data, onStatusUpdate }: AttendanceTabl
     { value: 'on_time', label: 'On Time', color: 'bg-green-100 text-green-800' },
     { value: 'late', label: 'Late', color: 'bg-orange-100 text-orange-800' },
     { value: 'absent', label: 'Absent', color: 'bg-red-100 text-red-800' },
-    { value: 'excused', label: 'Excused', color: 'bg-gray-100 text-gray-800' },
   ];
 
   const handleSort = (key: string) => {

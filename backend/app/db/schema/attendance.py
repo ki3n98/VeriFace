@@ -3,6 +3,13 @@ from typing import Union
 from datetime import datetime
 from app.db.models.attendance import AttendanceStatus
 
+
+class UpdateAttendanceStatusRequest(BaseModel):
+    user_id: int
+    session_id: int
+    status: str  # "present", "late", "absent"
+
+
 class UserInAttendance(BaseModel):
     user_id: int
     session_id: int

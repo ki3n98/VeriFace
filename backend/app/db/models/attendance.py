@@ -8,7 +8,6 @@ class AttendanceStatus(str, enum.Enum):
     PRESENT = "present"
     LATE = "late"
     ABSENT = "absent"
-    EXCUSED = "excused"
 
 class Attendance(Base):
     __tablename__ = "Attendance"

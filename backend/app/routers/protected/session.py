@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 from app.db.schema.user import UserOutput
 from app.db.schema.session import SessionInCreate, SessionOutput
-from app.db.schema.attendance import AttendanceWithUser
+from app.db.schema.attendance import AttendanceWithUser, UpdateAttendanceStatusRequest
 from app.service.sessionService import SessionService
 from app.service.attendantService import AttendanceService
 from app.core.database import get_db
@@ -16,6 +16,11 @@ from app.util.embeddings import upload_img_to_embedding
 
 class SessionIdRequest(BaseModel):
     session_id: int
+
+
+class EventIdRequest(BaseModel):
+    event_id: int
+
 
 sessionRouter = APIRouter()
 
@@ -86,6 +91,35 @@ async def get_sessions(
         raise error
 
 
+@sessionRouter.post("/getEventAttendanceOverview")
+async def get_event_attendance_overview(
+    body: EventIdRequest,
+    user: UserOutput = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> dict:
+    """Return attendance aggregates for an event (per session and overall) for Overview charts."""
+    try:
+        if not check_permission(
+            user_id=user.id,
+            event_id=body.event_id,
+            session=session,
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail="Current user does not have permission to view this event.",
+            )
+
+        result = AttendanceService(session=session).get_event_attendance_overview(
+            event_id=body.event_id
+        )
+        return {"success": True, **result}
+    except HTTPException:
+        raise
+    except Exception as error:
+        print(error)
+        raise
+
+
 @sessionRouter.post("/getAttendance")
 async def get_attendance(
     body: SessionIdRequest,
@@ -129,6 +163,48 @@ async def get_attendance(
     except Exception as error:
         print(error)
         raise error
+
+
+@sessionRouter.post("/updateAttendanceStatus")
+async def update_attendance_status(
+    body: UpdateAttendanceStatusRequest,
+    user: UserOutput = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> dict:
+    """Manually update a user's attendance status (present, late, absent)."""
+    try:
+        session_obj = (
+            session.query(SessionModel)
+            .filter(SessionModel.id == body.session_id)
+            .one_or_none()
+        )
+        if session_obj is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Session with id={body.session_id} not found.",
+            )
+
+        if not check_permission(
+            user_id=user.id,
+            event_id=session_obj.event_id,
+            session=session,
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail="Current user does not have permission to update attendance.",
+            )
+
+        result = AttendanceService(session=session).update_attendance_status(
+            user_id=body.user_id,
+            session_id=body.session_id,
+            status=body.status,
+        )
+        return {"success": True, **result}
+    except HTTPException:
+        raise
+    except Exception as error:
+        print(error)
+        raise
 
 
 @sessionRouter.post("/checkin")

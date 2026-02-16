@@ -19,9 +19,45 @@ class AttendanceService:
     def add_users_for_session(self, session_id: int) -> list[Attendance]:
         return self.__repo.add_users(session_id)
 
+    def update_attendance_status(
+        self, user_id: int, session_id: int, status: str
+    ) -> dict:
+        """Manually update a user's attendance status for a session."""
+        from app.db.models.attendance import AttendanceStatus
+
+        status_map = {
+            "present": AttendanceStatus.PRESENT,
+            "late": AttendanceStatus.LATE,
+            "absent": AttendanceStatus.ABSENT,
+        }
+        status_enum = status_map.get(status.lower())
+        if status_enum is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status '{status}'. Must be present, late, or absent.",
+            )
+
+        att = self.__repo.update_status(user_id, session_id, status_enum)
+        if att is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Attendance record not found for this user and session.",
+            )
+
+        return {
+            "user_id": att.user_id,
+            "session_id": att.session_id,
+            "status": att.status.value,
+            "check_in_time": att.check_in_time,
+        }
+
+    def get_event_attendance_overview(self, event_id: int) -> dict:
+        """Return attendance aggregates for an event (per session and overall)."""
+        return self.__repo.get_event_attendance_overview(event_id)
+
     def get_session_attendance(self, session_id: int) -> dict:
         records = self.__repo.get_attendance_by_session_id(session_id)
-        summary = {"present": 0, "late": 0, "absent": 0, "excused": 0, "total": len(records)}
+        summary = {"present": 0, "late": 0, "absent": 0, "total": len(records)}
         for r in records:
             status_val = r["status"].value if hasattr(r["status"], "value") else r["status"]
             if status_val in summary:

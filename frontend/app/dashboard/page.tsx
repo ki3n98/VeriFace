@@ -26,31 +26,9 @@ import { apiClient } from "@/lib/api"
 import { AddMemberModal } from "@/app/events/components/AddMemberModal"
 import { QRCodeModal } from "@/app/dashboard/components/QRCodeModal"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
+import { StatusDropdown } from "@/app/dashboard/components/StatusDropdown"
 import { X } from "lucide-react"
 
-// Hardcoded data
-const summaryStats = {
-  present: { count: 156, total: 180, percentage: 87, trend: "+2%" },
-  late: { count: 18, total: 180, percentage: 10, trend: "+1%" },
-  absent: { count: 6, total: 180, percentage: 3, trend: "-2%" },
-  total: { count: 180, trend: "+2%" },
-}
-
-const weeklyData = [
-  { day: "Monday", present: 165, late: 10, absent: 5 },
-  { day: "Tuesday", present: 168, late: 8, absent: 4 },
-  { day: "Wednesday", present: 170, late: 7, absent: 3 },
-  { day: "Thursday", present: 172, late: 6, absent: 2 },
-  { day: "Friday", present: 160, late: 15, absent: 5 },
-  { day: "Saturday", present: 148, late: 18, absent: 14 },
-  { day: "Sunday", present: 120, late: 20, absent: 40 },
-]
-
-const distributionData = [
-  { name: "Present", value: 156, percentage: 87 },
-  { name: "Late", value: 18, percentage: 10 },
-  { name: "Absent", value: 6, percentage: 3 },
-]
 
 interface EventMember {
   id: number
@@ -72,7 +50,6 @@ interface AttendanceSummary {
   present: number
   late: number
   absent: number
-  excused: number
   total: number
 }
 
@@ -108,7 +85,6 @@ interface User {
 }
 
 export default function Dashboard() {
-  const [viewMode, setViewMode] = useState("week")
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -130,7 +106,35 @@ export default function Dashboard() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([])
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null)
   const [loadingAttendance, setLoadingAttendance] = useState(false)
+  const [updatingStatusFor, setUpdatingStatusFor] = useState<number | null>(null)
+  const [overviewData, setOverviewData] = useState<{
+    per_session: Array<{
+      session_id: number
+      sequence_number: number
+      label: string
+      present: number
+      late: number
+      absent: number
+      total: number
+    }>
+    overall: { present: number; late: number; absent: number; total: number }
+  } | null>(null)
+  const [loadingOverview, setLoadingOverview] = useState(false)
+  const [selectedOverviewSessionId, setSelectedOverviewSessionId] = useState<number | null>(null)
   const eventId = searchParams?.get('eventId') ? parseInt(searchParams.get('eventId')!) : null
+
+  // Selected session data for summary cards and donut (default: latest session)
+  const selectedSessionData = (() => {
+    if (!overviewData?.per_session?.length) return null
+    const sorted = [...overviewData.per_session].sort(
+      (a, b) => b.sequence_number - a.sequence_number
+    )
+    const latest = sorted[0]
+    const session = selectedOverviewSessionId
+      ? overviewData.per_session.find((s) => s.session_id === selectedOverviewSessionId)
+      : latest
+    return session ?? latest
+  })()
 
   useEffect(() => {
     async function fetchUser() {
@@ -201,6 +205,32 @@ export default function Dashboard() {
     }
     fetchSessions()
   }, [eventId])
+
+  useEffect(() => {
+    async function fetchOverview() {
+      if (!eventId || activeTab !== "overview") {
+        setOverviewData(null)
+        setSelectedOverviewSessionId(null)
+        return
+      }
+      setLoadingOverview(true)
+      try {
+        const response = await apiClient.getEventAttendanceOverview(eventId)
+        if (response.error) {
+          setOverviewData(null)
+        } else {
+          setOverviewData(response.data || null)
+          setSelectedOverviewSessionId(null) // Reset to latest when data refreshes
+        }
+      } catch (error) {
+        console.error("Error fetching overview:", error)
+        setOverviewData(null)
+      } finally {
+        setLoadingOverview(false)
+      }
+    }
+    fetchOverview()
+  }, [eventId, activeTab])
 
   useEffect(() => {
     async function fetchAttendance() {
@@ -324,6 +354,43 @@ export default function Dashboard() {
     setActiveTab(tab)
   }
 
+  const handleStatusChange = async (
+    record: AttendanceRecord,
+    newStatus: "present" | "late" | "absent"
+  ) => {
+    if (typeof activeTab !== "number") return
+    setUpdatingStatusFor(record.user_id)
+    try {
+      const response = await apiClient.updateAttendanceStatus(
+        record.user_id,
+        activeTab,
+        newStatus
+      )
+      if (response.error) {
+        alert(`Failed to update status: ${response.error}`)
+        return
+      }
+      // Refresh attendance and summary
+      const refreshResponse = await apiClient.getSessionAttendance(activeTab)
+      if (!refreshResponse.error && refreshResponse.data) {
+        setAttendance(refreshResponse.data.attendance || [])
+        setAttendanceSummary(refreshResponse.data.summary || null)
+      }
+      // Refresh overview data so charts update when switching back to Overview tab
+      if (eventId) {
+        const overviewResponse = await apiClient.getEventAttendanceOverview(eventId)
+        if (!overviewResponse.error && overviewResponse.data) {
+          setOverviewData(overviewResponse.data)
+        }
+      }
+    } catch (error) {
+      console.error("Error updating status:", error)
+      alert("Failed to update status. Please try again.")
+    } finally {
+      setUpdatingStatusFor(null)
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "present":
@@ -332,8 +399,6 @@ export default function Dashboard() {
         return <Badge className="bg-amber-500 hover:bg-amber-600">Late</Badge>
       case "absent":
         return <Badge className="bg-red-500 hover:bg-red-600">Absent</Badge>
-      case "excused":
-        return <Badge className="bg-blue-500 hover:bg-blue-600">Excused</Badge>
       default:
         return <Badge className="bg-gray-500 hover:bg-gray-600">{status}</Badge>
     }
@@ -461,7 +526,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Summary Cards */}
+        {/* Summary Cards - show selected/latest session */}
         <div className="grid grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="pb-3">
@@ -471,11 +536,11 @@ export default function Dashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground2">{summaryStats.present.count}</div>
-              <div className="text-sm text-muted-foreground">Out of {summaryStats.present.total} students</div>
-              <div className="flex items-center gap-1 mt-2">
-                <TrendingUp className="h-3 w-3 text-emerald-500" />
-                <span className="text-xs text-emerald-500">{summaryStats.present.trend}</span>
+              <div className="text-3xl font-bold text-foreground2">
+                {loadingOverview ? "—" : (selectedSessionData?.present ?? 0)}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Out of {loadingOverview ? "—" : (selectedSessionData?.total ?? 0)} students
               </div>
             </CardContent>
           </Card>
@@ -488,12 +553,10 @@ export default function Dashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground2">{summaryStats.late.count}</div>
-              <div className="text-sm text-muted-foreground">Students arrived late</div>
-              <div className="flex items-center gap-1 mt-2">
-                <TrendingUp className="h-3 w-3 text-amber-500" />
-                <span className="text-xs text-amber-500">{summaryStats.late.trend}</span>
+              <div className="text-3xl font-bold text-foreground2">
+                {loadingOverview ? "—" : (selectedSessionData?.late ?? 0)}
               </div>
+              <div className="text-sm text-muted-foreground">Students arrived late</div>
             </CardContent>
           </Card>
 
@@ -505,12 +568,10 @@ export default function Dashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground2">{summaryStats.absent.count}</div>
-              <div className="text-sm text-muted-foreground">Not checked in yet</div>
-              <div className="flex items-center gap-1 mt-2">
-                <TrendingDown className="h-3 w-3 text-emerald-500" />
-                <span className="text-xs text-emerald-500">{summaryStats.absent.trend}</span>
+              <div className="text-3xl font-bold text-foreground2">
+                {loadingOverview ? "—" : (selectedSessionData?.absent ?? 0)}
               </div>
+              <div className="text-sm text-muted-foreground">Not checked in yet</div>
             </CardContent>
           </Card>
 
@@ -522,11 +583,11 @@ export default function Dashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground2">{summaryStats.total.count}</div>
-              <div className="text-sm text-muted-foreground">Registered students</div>
-              <div className="flex items-center gap-1 mt-2">
-                <TrendingUp className="h-3 w-3 text-blue-500" />
-                <span className="text-xs text-blue-500">{summaryStats.total.trend}</span>
+              <div className="text-3xl font-bold text-foreground2">
+                {loadingOverview ? "—" : (selectedSessionData?.total ?? 0)}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {selectedSessionData ? selectedSessionData.label : "Registered students"}
               </div>
             </CardContent>
           </Card>
@@ -606,96 +667,166 @@ export default function Dashboard() {
           <>
             {/* Charts Section */}
             <div className="grid grid-cols-3 gap-6 mb-8">
-              {/* Weekly Attendance Trends */}
+              {/* Attendance by Session */}
               <Card className="col-span-2">
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Weekly Attendance Trends</CardTitle>
-                    <div className="flex gap-2">
-                      <Button
-                        variant={viewMode === "day" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setViewMode("day")}
-                      >
-                        Day
-                      </Button>
-                      <Button
-                        variant={viewMode === "week" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setViewMode("week")}
-                        className="bg-primary hover:bg-primary/90"
-                      >
-                        Week
-                      </Button>
-                      <Button
-                        variant={viewMode === "month" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setViewMode("month")}
-                      >
-                        Month
-                      </Button>
-                    </div>
-                  </div>
+                  <CardTitle>Attendance by Session</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Click a bar to view that session&apos;s summary above
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={weeklyData}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="day" />
-                        <YAxis />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend />
-                        <Bar dataKey="present" fill={COLORS.present} name="Present" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="late" fill={COLORS.late} name="Late" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="absent" fill={COLORS.absent} name="Absent" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    {loadingOverview ? (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        Loading...
+                      </div>
+                    ) : !overviewData?.per_session?.length ? (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        No sessions yet. Start a session to see attendance data.
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={[...overviewData.per_session].sort(
+                            (a, b) => a.sequence_number - b.sequence_number
+                          )}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="label" />
+                          <YAxis />
+                          <Tooltip content={<CustomTooltip />} />
+                          <Legend />
+                          <Bar
+                            dataKey="present"
+                            fill={COLORS.present}
+                            name="Present"
+                            radius={[4, 4, 0, 0]}
+                            onClick={(data: unknown) => {
+                              const d = data as { payload?: { session_id?: number }; session_id?: number }
+                              const sessionId = d?.payload?.session_id ?? d?.session_id
+                              if (sessionId != null) {
+                                setSelectedOverviewSessionId(sessionId)
+                              }
+                            }}
+                            style={{ cursor: "pointer" }}
+                          />
+                          <Bar
+                            dataKey="late"
+                            fill={COLORS.late}
+                            name="Late"
+                            radius={[4, 4, 0, 0]}
+                            onClick={(data: unknown) => {
+                              const d = data as { payload?: { session_id?: number }; session_id?: number }
+                              const sessionId = d?.payload?.session_id ?? d?.session_id
+                              if (sessionId != null) {
+                                setSelectedOverviewSessionId(sessionId)
+                              }
+                            }}
+                            style={{ cursor: "pointer" }}
+                          />
+                          <Bar
+                            dataKey="absent"
+                            fill={COLORS.absent}
+                            name="Absent"
+                            radius={[4, 4, 0, 0]}
+                            onClick={(data: unknown) => {
+                              const d = data as { payload?: { session_id?: number }; session_id?: number }
+                              const sessionId = d?.payload?.session_id ?? d?.session_id
+                              if (sessionId != null) {
+                                setSelectedOverviewSessionId(sessionId)
+                              }
+                            }}
+                            style={{ cursor: "pointer" }}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Today's Distribution */}
+              {/* Distribution for selected session */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Today's Distribution</CardTitle>
+                  <CardTitle>
+                    {selectedSessionData ? `${selectedSessionData.label} Distribution` : "Overall Distribution"}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="h-[220px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={distributionData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={2}
-                          dataKey="value"
-                        >
-                          {distributionData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[entry.name.toLowerCase() as keyof typeof COLORS]} />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<CustomTooltip />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="mt-4 space-y-2">
-                    {distributionData.map((item) => (
-                      <div key={item.name} className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: COLORS[item.name.toLowerCase() as keyof typeof COLORS] }}
-                          />
-                          <span>{item.name}</span>
-                        </div>
-                        <span className="font-medium">
-                          {item.value} ({item.percentage}%)
-                        </span>
+                    {loadingOverview ? (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        Loading...
                       </div>
-                    ))}
+                    ) : !selectedSessionData?.total ? (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        No data yet
+                      </div>
+                    ) : (
+                      <>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: "Present", value: selectedSessionData.present },
+                                { name: "Late", value: selectedSessionData.late },
+                                { name: "Absent", value: selectedSessionData.absent },
+                              ].filter((d) => d.value > 0)}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              paddingAngle={2}
+                              dataKey="value"
+                            >
+                              {[
+                                { name: "Present", value: selectedSessionData.present },
+                                { name: "Late", value: selectedSessionData.late },
+                                { name: "Absent", value: selectedSessionData.absent },
+                              ]
+                                .filter((d) => d.value > 0)
+                                .map((entry, index) => (
+                                  <Cell
+                                    key={`cell-${index}`}
+                                    fill={COLORS[entry.name.toLowerCase() as keyof typeof COLORS]}
+                                  />
+                                ))}
+                            </Pie>
+                            <Tooltip content={<CustomTooltip />} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="mt-4 space-y-2">
+                          {[
+                            { name: "Present", value: selectedSessionData.present },
+                            { name: "Late", value: selectedSessionData.late },
+                            { name: "Absent", value: selectedSessionData.absent },
+                          ].map((item) => {
+                            const pct =
+                              selectedSessionData.total > 0
+                                ? Math.round((item.value / selectedSessionData.total) * 100)
+                                : 0
+                            return (
+                              <div key={item.name} className="flex items-center justify-between text-sm">
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{
+                                      backgroundColor:
+                                        COLORS[item.name.toLowerCase() as keyof typeof COLORS],
+                                    }}
+                                  />
+                                  <span>{item.name}</span>
+                                </div>
+                                <span className="font-medium">
+                                  {item.value} ({pct}%)
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -881,7 +1012,13 @@ export default function Dashboard() {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell>{getStatusBadge(record.status)}</TableCell>
+                          <TableCell>
+                            <StatusDropdown
+                              record={record}
+                              updating={updatingStatusFor === record.user_id}
+                              onStatusChange={handleStatusChange}
+                            />
+                          </TableCell>
                           <TableCell>
                             {record.check_in_time
                               ? new Date(record.check_in_time).toLocaleTimeString()

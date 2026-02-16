@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 from app.db.models.attendance import Attendance, AttendanceStatus
 from app.db.models.session import Session as SessionModel
+from app.db.models.event import Event
 from app.db.models.event_user import EventUser
 from app.db.models.user import User
 
@@ -118,8 +119,50 @@ class AttendanceRepository(BaseRepository):
         return att
     
 
-    def get_attendance_by_session_id(self, session_id: int) -> list[dict]:
-        """Return attendance records for a session with user details."""
+    def update_status(
+        self, user_id: int, session_id: int, status: AttendanceStatus
+    ) -> Attendance | None:
+        """
+        Manually update a user's attendance status for a session.
+        For present/late, sets check_in_time if not already set.
+        """
+        att = (
+            self.session.query(Attendance)
+            .filter(
+                Attendance.user_id == user_id,
+                Attendance.session_id == session_id,
+            )
+            .first()
+        )
+        if not att:
+            return None
+
+        att.status = status
+        if status in (AttendanceStatus.PRESENT, AttendanceStatus.LATE):
+            if att.check_in_time is None:
+                when = datetime.now(timezone.utc)
+                tz_pacific = ZoneInfo("America/Los_Angeles")
+                att.check_in_time = when.astimezone(tz_pacific)
+        elif status == AttendanceStatus.ABSENT:
+            att.check_in_time = None
+
+        self.session.commit()
+        self.session.refresh(att)
+        return att
+
+    def get_attendance_by_session_id(
+        self, session_id: int, exclude_creator: bool = True
+    ) -> list[dict]:
+        """Return attendance records for a session with user details. Excludes event creator (admin) by default."""
+        # Get event creator to exclude from attendance list
+        creator_id = None
+        if exclude_creator:
+            session_obj = self.session.get(SessionModel, session_id)
+            if session_obj:
+                event_obj = self.session.get(Event, session_obj.event_id)
+                if event_obj:
+                    creator_id = event_obj.user_id
+
         rows = (
             self.session.query(
                 Attendance.user_id,
@@ -133,7 +176,7 @@ class AttendanceRepository(BaseRepository):
             .filter(Attendance.session_id == session_id)
             .all()
         )
-        return [
+        result = [
             {
                 "user_id": r.user_id,
                 "first_name": r.first_name,
@@ -144,6 +187,80 @@ class AttendanceRepository(BaseRepository):
             }
             for r in rows
         ]
+        if creator_id is not None:
+            result = [r for r in result if r["user_id"] != creator_id]
+        return result
+
+    def get_event_attendance_overview(
+        self, event_id: int, exclude_creator: bool = True
+    ) -> dict:
+        """
+        Return attendance aggregates for an event, per session and overall.
+        Excludes event creator (admin) by default.
+        """
+        from sqlalchemy import func
+
+        creator_id = None
+        if exclude_creator:
+            event_obj = self.session.get(Event, event_id)
+            if event_obj:
+                creator_id = event_obj.user_id
+
+        # Get all sessions for this event
+        sessions = (
+            self.session.query(SessionModel.id, SessionModel.sequence_number)
+            .filter(SessionModel.event_id == event_id)
+            .order_by(SessionModel.sequence_number)
+            .all()
+        )
+
+        per_session = []
+        total_present = 0
+        total_late = 0
+        total_absent = 0
+
+        for sess_id, seq_num in sessions:
+            q = (
+                self.session.query(Attendance.status, func.count(Attendance.id))
+                .filter(Attendance.session_id == sess_id)
+            )
+            if creator_id is not None:
+                q = q.filter(Attendance.user_id != creator_id)
+            counts = q.group_by(Attendance.status).all()
+            present = late = absent = 0
+            for status, cnt in counts:
+                val = status.value if hasattr(status, "value") else str(status)
+                if val == "present":
+                    present = cnt
+                elif val == "late":
+                    late = cnt
+                elif val == "absent":
+                    absent = cnt
+
+            total = present + late + absent
+            total_present += present
+            total_late += late
+            total_absent += absent
+
+            per_session.append({
+                "session_id": sess_id,
+                "sequence_number": seq_num,
+                "label": f"Session #{seq_num}",
+                "present": present,
+                "late": late,
+                "absent": absent,
+                "total": total,
+            })
+
+        return {
+            "per_session": per_session,
+            "overall": {
+                "present": total_present,
+                "late": total_late,
+                "absent": total_absent,
+                "total": total_present + total_late + total_absent,
+            },
+        }
 
     def delete_by_session_id(self, session_id:int) -> int:
         """Delete all attended records by session_id. Return counts deleted."""
