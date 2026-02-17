@@ -56,6 +56,9 @@ class EventService:
             detail="{user_id} is not the owner of {event_id}."
             )
     
+    def get_events_by_owner(self, user_id: int) -> list:
+        return self.__eventRepository.get_events_by_owner(user_id=user_id)
+
     def add_new_users(self,event_id) ->None:
         sessions = (
             self.session

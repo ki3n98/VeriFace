@@ -31,8 +31,8 @@ async def create_event(
         event =  EventService(session=session).create_event(event_details=event_details)
         
         #add relationship to EventUser table
-        relationship = EventUserCreate(user_id=user.id, event_id=event.id)
-        EventUserService(session=session).add_relationship(event_user=relationship)
+        # relationship = EventUserCreate(user_id=user.id, event_id=event.id)
+        # EventUserService(session=session).add_relationship(event_user=relationship)
 
         return event
     except Exception as error:
@@ -163,6 +163,20 @@ async def get_events_from_user(
 ):
     try:
         return EventUserService(session=session).get_event(
+            user_id=user.id
+            )
+    except Exception as error:
+        print(error)
+        raise error
+
+
+@eventRouter.get("/getOwnedEvents")
+async def get_owned_events(
+    user: UserOutput = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> List[EventOutput]:
+    try:
+        return EventService(session=session).get_events_by_owner(
             user_id=user.id
             )
     except Exception as error:

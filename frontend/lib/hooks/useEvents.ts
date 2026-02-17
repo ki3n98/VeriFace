@@ -20,7 +20,7 @@ export function useEvents() {
       setLoading(true)
       setError(null)
       
-      const response = await apiClient.get<Event[]>('/protected/event/getEventsFromUser')
+      const response = await apiClient.get<Event[]>('/protected/event/getOwnedEvents')
       
       if (response.error) {
         setError(response.error)
@@ -36,7 +36,7 @@ export function useEvents() {
 
   const refetch = async () => {
     setLoading(true)
-    const response = await apiClient.get<Event[]>('/protected/event/getEventsFromUser')
+    const response = await apiClient.get<Event[]>('/protected/event/getOwnedEvents')
     
     if (response.error) {
       setError(response.error)

@@ -64,6 +64,10 @@ class EventRepository(BaseRepository):
         return True
     
     
+    def get_events_by_owner(self, user_id: int) -> list:
+        """Return all events owned by the given user."""
+        return self.session.query(Event).filter(Event.user_id == user_id).all()
+
     def delete_event_cascade(self, user_id: int, event_id: int) -> bool:
         """
         Delete event with all related data (cascade delete).
