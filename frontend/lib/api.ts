@@ -283,10 +283,48 @@ class ApiClient {
         present: number;
         late: number;
         absent: number;
-        excused: number;
         total: number;
       };
     }>("/protected/session/getAttendance", { session_id: sessionId });
+  }
+
+  async getEventAttendanceOverview(eventId: number) {
+    return this.post<{
+      success: boolean;
+      per_session: Array<{
+        session_id: number;
+        sequence_number: number;
+        label: string;
+        present: number;
+        late: number;
+        absent: number;
+        total: number;
+      }>;
+      overall: {
+        present: number;
+        late: number;
+        absent: number;
+        total: number;
+      };
+    }>("/protected/session/getEventAttendanceOverview", { event_id: eventId });
+  }
+
+  async updateAttendanceStatus(
+    userId: number,
+    sessionId: number,
+    status: "present" | "late" | "absent"
+  ) {
+    return this.post<{
+      success: boolean;
+      user_id: number;
+      session_id: number;
+      status: string;
+      check_in_time: string | null;
+    }>("/protected/session/updateAttendanceStatus", {
+      user_id: userId,
+      session_id: sessionId,
+      status,
+    });
   }
 
   // User Settings

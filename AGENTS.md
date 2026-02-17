@@ -88,7 +88,7 @@ Database uses NullPool (no connection pooling) configured in `core/database.py`.
 - Path alias `@/` maps to project root
 
 ### Database Schema
-Key relationships: `Users` ↔ `Events` (many-to-many via `EventsUsers`), `Events` → `Sessions` (one-to-many), `Sessions` ↔ `Users` → `Attendance` (status enum: present/late/absent/excused). Events cascade-delete sessions and attendance.
+Key relationships: `Users` ↔ `Events` (many-to-many via `EventsUsers`), `Events` → `Sessions` (one-to-many), `Sessions` ↔ `Users` → `Attendance` (status enum: present/late/absent). Events cascade-delete sessions and attendance.
 
 ### Face Recognition Flow
 1. Upload image → MTCNN detects exactly 1 face → FaceNet generates 512-dim embedding
