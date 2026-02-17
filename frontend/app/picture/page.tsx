@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "../sign-in/sign-in.module.css";
 import { apiClient } from "@/lib/api";
@@ -43,6 +43,48 @@ function toErrorString(err: unknown): string {
   }
 }
 
+function FullScreenLoader({ message }: { message: string }) {
+  return (
+    <div className={styles.pageWrapper}>
+      <img src="/logo.png" className={styles.logo} alt="Logo" />
+      <div
+        className={styles.card}
+        style={{
+          maxWidth: 520,
+          margin: "24px auto",
+          textAlign: "center",
+          padding: 24,
+        }}
+      >
+        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>
+          {message}
+        </div>
+
+        <div
+          aria-label="Loading"
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            border: "4px solid #e5e5e5",
+            borderTopColor: "#111",
+            margin: "14px auto 0",
+            animation: "spin 0.9s linear infinite",
+          }}
+        />
+
+        <style jsx>{`
+          @keyframes spin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}</style>
+      </div>
+    </div>
+  );
+}
+
 export default function PicturePage() {
   const router = useRouter();
 
@@ -51,7 +93,26 @@ export default function PicturePage() {
 
   const [isCheckingEmbeddings, setIsCheckingEmbeddings] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [isWaitingForEmbeddings, setIsWaitingForEmbeddings] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
+
+  const isBusy = isCheckingEmbeddings || isUploading || isWaitingForEmbeddings;
+
+  const loaderMessage = useMemo(() => {
+    if (isCheckingEmbeddings) return "Checking your account…";
+    if (isUploading) return "Uploading your photo…";
+    if (isWaitingForEmbeddings) return "Generating your embedding…";
+    return "Loading…";
+  }, [isCheckingEmbeddings, isUploading, isWaitingForEmbeddings]);
+
+  async function fetchHasEmbeddings(): Promise<boolean> {
+    const res = await apiClient.post<HasEmbeddingsResponse>(
+      "/protected/model/hasEmbedding",
+      {},
+    );
+    return coerceHasEmbeddings((res as any)?.data ?? (res as any));
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -61,22 +122,15 @@ export default function PicturePage() {
       setError(null);
 
       try {
-        const res = await apiClient.post<HasEmbeddingsResponse>(
-          "/protected/model/hasEmbedding",
-          {},
-        );
+        const has = await fetchHasEmbeddings();
+        if (cancelled) return;
 
-        const has = coerceHasEmbeddings((res as any)?.data ?? (res as any));
-
-        if (!cancelled) {
-          if (has) router.replace("/events");
-          else setIsCheckingEmbeddings(false);
-        }
+        if (has) router.replace("/events");
+        else setIsCheckingEmbeddings(false);
       } catch (e) {
-        if (!cancelled) {
-          setIsCheckingEmbeddings(false);
-          setError(toErrorString(e));
-        }
+        if (cancelled) return;
+        setIsCheckingEmbeddings(false);
+        setError(toErrorString(e));
       }
     }
 
@@ -88,9 +142,48 @@ export default function PicturePage() {
 
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
+
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+
     setFile(f);
     setError(null);
     setPreviewUrl(f ? URL.createObjectURL(f) : null);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const waitForEmbeddings = async (opts?: {
+    timeoutMs?: number;
+    intervalMs?: number;
+  }) => {
+    const timeoutMs = opts?.timeoutMs ?? 60_000;
+    const intervalMs = opts?.intervalMs ?? 1500;
+
+    setIsWaitingForEmbeddings(true);
+    setError(null);
+
+    const start = Date.now();
+
+    try {
+      while (Date.now() - start < timeoutMs) {
+        const has = await fetchHasEmbeddings();
+        if (has) {
+          router.replace("/events");
+          return;
+        }
+        await new Promise((r) => setTimeout(r, intervalMs));
+      }
+
+      setError("Upload succeeded, please wait...");
+    } catch (e) {
+      setError(toErrorString(e));
+    } finally {
+      setIsWaitingForEmbeddings(false);
+    }
   };
 
   const onUpload = async () => {
@@ -109,7 +202,6 @@ export default function PicturePage() {
       setIsUploading(true);
 
       const fd = new FormData();
-
       fd.append("upload_image", file, file.name);
 
       const response = await apiClient.post<any>(
@@ -122,13 +214,17 @@ export default function PicturePage() {
         return;
       }
 
-      router.push("/events");
+      await waitForEmbeddings({ timeoutMs: 60_000, intervalMs: 1500 });
     } catch (e) {
       setError(toErrorString(e));
     } finally {
       setIsUploading(false);
     }
   };
+
+  if (isBusy) {
+    return <FullScreenLoader message={loaderMessage} />;
+  }
 
   return (
     <div className={styles.pageWrapper}>
@@ -194,7 +290,7 @@ export default function PicturePage() {
                 borderRadius: 10,
                 border: "1px solid #ddd",
                 background: "#fff",
-                cursor: isUploading ? "not-allowed" : "pointer",
+                cursor: "pointer",
                 width: "100%",
                 boxSizing: "border-box",
               }}
@@ -219,7 +315,6 @@ export default function PicturePage() {
                 type="file"
                 accept="image/*"
                 onChange={onPickFile}
-                disabled={isUploading}
                 style={{ display: "none" }}
               />
             </label>
@@ -245,14 +340,14 @@ export default function PicturePage() {
           <button
             className={styles.button}
             onClick={onUpload}
-            disabled={!file || isUploading}
+            disabled={!file}
             style={{
               flex: 1,
-              opacity: !file || isUploading ? 0.6 : 1,
-              cursor: !file || isUploading ? "not-allowed" : "pointer",
+              opacity: !file ? 0.6 : 1,
+              cursor: !file ? "not-allowed" : "pointer",
             }}
           >
-            {isUploading ? "Uploading..." : "Upload & Continue"}
+            Upload & Continue
           </button>
         </div>
       </div>

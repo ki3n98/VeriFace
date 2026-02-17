@@ -5,7 +5,7 @@ export default function Home() {
     <div className="min-h-screen text-white">
       <div className="fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-gradient-to-br from-[#7C3AED] via-[#8B5CF6] to-[#5B21B6]" />
-        
+
         <div className="absolute top-[35%] -left-24 h-[560px] w-[560px] rounded-full bg-fuchsia-300/10 blur-3xl" />
         <div className="absolute bottom-[-120px] right-[15%] h-[620px] w-[620px] rounded-full bg-indigo-200/10 blur-3xl" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/10 to-black/25" />
@@ -64,7 +64,6 @@ export default function Home() {
                 and fraud-resistant — powered by privacy-conscious AI.
               </p>
 
-              
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm text-white/80">
                 <div className="rounded-xl bg-white/5 border border-white/10 px-4 py-3">
                   <div className="font-semibold text-white/90">Real-time</div>
@@ -102,7 +101,6 @@ export default function Home() {
               "
             />
 
-            
             <style>{`
               @keyframes float {
                 0%, 100% { transform: translateY(0px); }
@@ -112,125 +110,133 @@ export default function Home() {
           </div>
         </div>
       </section>
-      
+
       {/* Banner */}
-    <section className="px-6 -mt-6 pb-10">
-      <div className="max-w-7xl mx-auto">
-    
-        <div className="rounded-3xl p-[1px] bg-gradient-to-r from-white/25 via-white/10 to-white/25">
-          <div className="relative overflow-hidden rounded-3xl bg-white/10 border border-white/10 backdrop-blur-2xl">
-           
-            <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-28 -left-28 h-72 w-72 rounded-full bg-fuchsia-200/10 blur-3xl" />
+      <section className="px-6 -mt-6 pb-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="rounded-3xl p-[1px] bg-gradient-to-r from-white/25 via-white/10 to-white/25">
+            <div className="relative overflow-hidden rounded-3xl bg-white/10 border border-white/10 backdrop-blur-2xl">
+              <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-28 -left-28 h-72 w-72 rounded-full bg-fuchsia-200/10 blur-3xl" />
 
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 px-6 py-6 sm:px-8 sm:py-7">
-              {/* Left */}
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-3 mb-2">
-                  <span className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/15 px-3 py-1 text-sm text-white/85">
-                    <span className="h-2 w-2 rounded-full bg-emerald-300/90" />
-                    Now in pilot programs
-                  </span>
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 px-6 py-6 sm:px-8 sm:py-7">
+                {/* Left */}
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-3 mb-2">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/15 px-3 py-1 text-sm text-white/85">
+                      <span className="h-2 w-2 rounded-full bg-emerald-300/90" />
+                      Now in pilot programs
+                    </span>
 
-                  <span className="text-sm text-white/70">
-                    Built for schools, labs, and events
-                  </span>
+                    <span className="text-sm text-white/70">
+                      Built for schools, labs, and events
+                    </span>
+                  </div>
+
+                  <h3 className="text-xl sm:text-2xl font-semibold text-white leading-tight">
+                    Trusted attendance that scales — without slowing people
+                    down.
+                  </h3>
+
+                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3">
+                      <div className="text-lg font-semibold text-white">
+                        {"<1s"}
+                      </div>
+                      <div className="text-sm text-white/70">Avg check-in</div>
+                    </div>
+                    <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3">
+                      <div className="text-lg font-semibold text-white">
+                        99.9%
+                      </div>
+                      <div className="text-sm text-white/70">Uptime target</div>
+                    </div>
+                    <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3">
+                      <div className="text-lg font-semibold text-white">
+                        Encrypted
+                      </div>
+                      <div className="text-sm text-white/70">Data at rest</div>
+                    </div>
+                    <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3">
+                      <div className="text-lg font-semibold text-white">
+                        API-first
+                      </div>
+                      <div className="text-sm text-white/70">
+                        Easy integration
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <h3 className="text-xl sm:text-2xl font-semibold text-white leading-tight">
-                  Trusted attendance that scales — without slowing people down.
-                </h3>
-
-               
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3">
-                    <div className="text-lg font-semibold text-white">{"<1s"}</div>
-                    <div className="text-sm text-white/70">Avg check-in</div>
-                  </div>
-                  <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3">
-                    <div className="text-lg font-semibold text-white">99.9%</div>
-                    <div className="text-sm text-white/70">Uptime target</div>
-                  </div>
-                  <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3">
-                    <div className="text-lg font-semibold text-white">Encrypted</div>
-                    <div className="text-sm text-white/70">Data at rest</div>
-                  </div>
-                  <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3">
-                    <div className="text-lg font-semibold text-white">API-first</div>
-                    <div className="text-sm text-white/70">Easy integration</div>
-                  </div>
+                {/* Right */}
+                <div className="flex flex-col sm:flex-row gap-3 lg:justify-end shrink-0">
+                  <a
+                    href="#"
+                    className="inline-flex justify-center items-center px-6 py-3 rounded-xl bg-white text-purple-900 font-semibold hover:bg-white/90 transition shadow-md"
+                  >
+                    Request a Demo
+                  </a>
+                  <a
+                    href="#"
+                    className="inline-flex justify-center items-center px-6 py-3 rounded-xl bg-white/10 border border-white/20 text-white font-semibold hover:bg-white/15 transition"
+                  >
+                    View Docs
+                  </a>
                 </div>
-              </div>
-
-              {/* Right */}
-              <div className="flex flex-col sm:flex-row gap-3 lg:justify-end shrink-0">
-                <a
-                  href="#"
-                  className="inline-flex justify-center items-center px-6 py-3 rounded-xl bg-white text-purple-900 font-semibold hover:bg-white/90 transition shadow-md"
-                >
-                  Request a Demo
-                </a>
-                <a
-                  href="#"
-                  className="inline-flex justify-center items-center px-6 py-3 rounded-xl bg-white/10 border border-white/20 text-white font-semibold hover:bg-white/15 transition"
-                >
-                  View Docs
-                </a>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    {/* Summary Cards */}
-    <section className="px-6 mb-16">
-      <div className="max-w-7xl mx-auto lg:px-1">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="bg-white/10 border border-white/15 backdrop-blur-2xl rounded-2xl hover:bg-white/15 transition duration-300">
-            <CardHeader>
-              <h2 className="text-2xl font-semibold text-white">
-                AI Identity Engine
-              </h2>
-            </CardHeader>
-            <CardContent>
-              <p className="text-white/85">
-                Real-time facial verification powered by adaptive machine
-                learning. Fast, accurate, and frictionless.
-              </p>
-            </CardContent>
-          </Card>
+      {/* Summary Cards */}
+      <section className="px-6 mb-16">
+        <div className="max-w-7xl mx-auto lg:px-1">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="bg-white/10 border border-white/15 backdrop-blur-2xl rounded-2xl hover:bg-white/15 transition duration-300">
+              <CardHeader>
+                <h2 className="text-2xl font-semibold text-white">
+                  AI Identity Engine
+                </h2>
+              </CardHeader>
+              <CardContent>
+                <p className="text-white/85">
+                  Real-time facial verification powered by adaptive machine
+                  learning. Fast, accurate, and frictionless.
+                </p>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-white/10 border border-white/15 backdrop-blur-2xl rounded-2xl hover:bg-white/15 transition duration-300">
-            <CardHeader>
-              <h2 className="text-2xl font-semibold text-white">
-                Privacy by Design
-              </h2>
-            </CardHeader>
-            <CardContent>
-              <p className="text-white/85">
-                End-to-end encryption and ethical AI built to protect user trust.
-              </p>
-            </CardContent>
-          </Card>
+            <Card className="bg-white/10 border border-white/15 backdrop-blur-2xl rounded-2xl hover:bg-white/15 transition duration-300">
+              <CardHeader>
+                <h2 className="text-2xl font-semibold text-white">
+                  Privacy by Design
+                </h2>
+              </CardHeader>
+              <CardContent>
+                <p className="text-white/85">
+                  End-to-end encryption and ethical AI built to protect user
+                  trust.
+                </p>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-white/10 border border-white/15 backdrop-blur-2xl rounded-2xl hover:bg-white/15 transition duration-300">
-            <CardHeader>
-              <h2 className="text-2xl font-semibold text-white">
-                Seamless Integration
-              </h2>
-            </CardHeader>
-            <CardContent>
-              <p className="text-white/85">
-                API-first architecture built for web, mobile, and enterprise-scale
-                systems.
-              </p>
-            </CardContent>
-          </Card>
+            <Card className="bg-white/10 border border-white/15 backdrop-blur-2xl rounded-2xl hover:bg-white/15 transition duration-300">
+              <CardHeader>
+                <h2 className="text-2xl font-semibold text-white">
+                  Seamless Integration
+                </h2>
+              </CardHeader>
+              <CardContent>
+                <p className="text-white/85">
+                  API-first architecture built for web, mobile, and
+                  enterprise-scale systems.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
-    </section>
-
+      </section>
     </div>
   );
 }
