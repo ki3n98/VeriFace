@@ -14,12 +14,21 @@ UPLOAD_URL = f"{BASE_URL}/protected/uploadPictureGodmode"
 IMGS_DIR = Path(__file__).parent / "imgs"
 
 # Mapping: image filename -> user_id
+# UPLOADS = {
+#     "kien.jpg": 1773,
+#     "hector.jpg": 1774,
+#     "jason.jpg": 1775,
+#     "Syn.jpg": 1776,
+# }
+
 UPLOADS = {
-    "kien.jpg": 1773,
-    "hector.jpg": 1774,
-    "jason.jpg": 1775,
-    "Syn.jpg": 1776,
+    "kira.jpg": 13,
+#     "hector.jpg": 1774,
+#     "jason.jpg": 1775,
+#     "Syn.jpg": 1776,
+# }
 }
+
 
 
 def upload(image_path: Path, user_id: int):

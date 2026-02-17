@@ -13,6 +13,11 @@ class ModelService:
 
 
     def img_to_embedding(self, img, multiple=False):
+        """
+        Run Facenet through an image to return the embeddings. 
+        If 1 face is detected, return 1 embedding; 
+        if multiple=True and detect multiple faces, return a list of embedding
+        """
         faces = self.mtcnn(img)
         if faces is None:
             raise HTTPException(status_code = 400, detail = 'No face detected')
