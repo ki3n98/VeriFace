@@ -9,22 +9,31 @@ class ModelService:
     def __init__(self):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.embedder = InceptionResnetV1(pretrained='vggface2').eval().to(self.device)
-        self.mtcnn = MTCNN(image_size=160, margin =20, keep_all= False, device=self.device)
+        self.mtcnn = MTCNN(image_size=160, margin =20, keep_all= True, device=self.device)
 
 
-    def img_to_embedding(self, img):
-        face = self.mtcnn(img)
-        if face is None:
+    def img_to_embedding(self, img, multiple=False):
+        faces = self.mtcnn(img)
+        if faces is None:
             raise HTTPException(status_code = 400, detail = 'No face detected')
-        # if len(face) == 0:
-        #     raise HTTPException(status_code = 400, detail = 'No face detected')
-        elif len(face) >= 2:
-            raise HTTPException(status_code=400, detail='Detecting more than 2 faces')
-        with torch.no_grad():
-            emb = self.embedder(face.unsqueeze(0).to(self.device))
-            emb = torch.nn.functional.normalize(emb,p=2,dim =1)
+        elif len(faces) == 1:
+            with torch.no_grad():
+                emb = self.embedder(faces[0].unsqueeze(0).to(self.device))
+                emb = torch.nn.functional.normalize(emb,p=2,dim =1)
+                return emb
 
-        return emb
+        elif multiple and len(faces) >= 2: 
+                embs = []
+                with torch.no_grad():
+                    for face in faces:
+                        emb = self.embedder(face.unsqueeze(0).to(self.device))
+                        emb = torch.nn.functional.normalize(emb,p=2,dim =1)
+                        embs.append(emb)
+                return embs
+
+        else:
+            raise HTTPException(status_code=400, detail="Multiple faces detected.")
+    
 
 
     def __cosine_distance(self, a, b):
