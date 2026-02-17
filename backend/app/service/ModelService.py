@@ -14,8 +14,10 @@ class ModelService:
 
     def img_to_embedding(self, img):
         face = self.mtcnn(img)
-        if not face:
+        if len(face) == 0:
             raise HTTPException(status_code = 400, detail = 'No face detected')
+        elif len(face) >= 2:
+            raise HTTPException(status_code=400, detail='Detecting more than 2 faces')
         with torch.no_grad():
             emb = self.embedder(face.unsqueeze(0).to(self.device))
             emb = torch.nn.functional.normalize(emb,p=2,dim =1)
