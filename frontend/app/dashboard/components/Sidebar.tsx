@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { apiClient } from '@/lib/api';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { apiClient } from "@/lib/api";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface User {
   id: number;
@@ -19,6 +19,12 @@ export default function Sidebar() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const handleLogout = () => {
+    apiClient.logout();
+    router.replace("/sign-in");
+    router.refresh();
+  };
+
   useEffect(() => {
     async function fetchUser() {
       try {
@@ -29,7 +35,7 @@ export default function Sidebar() {
           setUser(userData);
         }
       } catch (error) {
-        console.error('Failed to fetch user:', error);
+        console.error("Failed to fetch user:", error);
       } finally {
         setLoading(false);
       }
@@ -38,19 +44,22 @@ export default function Sidebar() {
   }, []);
 
   const navItems = [
-    { name: 'Home', path: '/dashboard', icon: '🏠' },
-    { name: 'Events', path: '/events', icon: '📅' },
-    { name: 'Settings', path: '/settings', icon: '⚙️' },
+    { name: "Home", path: "/dashboard", icon: "🏠" },
+    { name: "Events", path: "/events", icon: "📅" },
+    { name: "Settings", path: "/settings", icon: "⚙️" },
   ];
 
   const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
+    return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
   };
 
   return (
     <aside className="w-64 bg-[var(--sidebar)] text-[var(--sidebar-foreground)] flex flex-col">
       <div className="p-6 border-b border-[var(--sidebar-border)]/30">
-        <Link href="/dashboard" className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+        >
           <img src="/logo.png" alt="VeriFace Logo" className="h-10 w-auto" />
           <h2 className="text-xl font-bold">VeriFace</h2>
         </Link>
@@ -65,8 +74,8 @@ export default function Sidebar() {
                   href={item.path}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition ${
                     isActive
-                      ? 'bg-[var(--sidebar-accent)] text-white font-semibold'
-                      : 'opacity-90 hover:bg-[var(--sidebar-accent)]/50 hover:text-white'
+                      ? "bg-[var(--sidebar-accent)] text-white font-semibold"
+                      : "opacity-90 hover:bg-[var(--sidebar-accent)]/50 hover:text-white"
                   }`}
                 >
                   <span className="text-xl">{item.icon}</span>
@@ -77,8 +86,17 @@ export default function Sidebar() {
           })}
         </ul>
       </nav>
-      {/* Profile Section */}
-      <div className="p-4 border-t border-[var(--sidebar-border)]/30">
+      {/* Logout + Profile Section */}
+      <div className="p-4 border-t border-[var(--sidebar-border)]/30 space-y-4">
+        {/* Logout Link */}
+        <button
+          onClick={handleLogout}
+          className="w-full text-left px-4 py-2 rounded-lg text-sm font-medium opacity-90 hover:bg-red-500/20 hover:text-red-400 transition"
+        >
+          🚪 Logout
+        </button>
+
+        {/* Profile Section */}
         {loading ? (
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-white/10 animate-pulse" />
@@ -98,9 +116,7 @@ export default function Sidebar() {
               <div className="font-semibold text-sm truncate">
                 {user.first_name} {user.last_name}
               </div>
-              <div className="text-xs opacity-90 truncate">
-                {user.email}
-              </div>
+              <div className="text-xs opacity-90 truncate">{user.email}</div>
             </div>
           </div>
         ) : (
