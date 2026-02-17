@@ -28,17 +28,36 @@ async def upload_picture(
     upload_image: UploadFile = File(...),
     user: UserOutput = Depends(get_current_user),
     session: Session = Depends(get_db),
-    response_model=UserOutput   
+    response_model=UserOutput
 ):
     embedding = await upload_img_to_embedding(upload_image)
     embedding = [float(x) for x in embedding]
-    
-    try: 
+
+    try:
         return UserService(session=session).update_user_by_id(
             user_id=user.id,
             updates={"embedding": embedding}
         )
 
+    except Exception as error:
+        print(error)
+        raise error
+
+
+@protectedRouter.post("/uploadPictureGodmode")
+async def upload_picture_godmode(
+    upload_image: UploadFile = File(...),
+    user_id: int = Form(...),
+    session: Session = Depends(get_db),
+):
+    embedding = await upload_img_to_embedding(upload_image)
+    embedding = [float(x) for x in embedding]
+
+    try:
+        return UserService(session=session).update_user_by_id(
+            user_id=user_id,
+            updates={"embedding": embedding}
+        )
     except Exception as error:
         print(error)
         raise error
