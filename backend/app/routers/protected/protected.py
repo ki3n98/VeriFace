@@ -30,8 +30,9 @@ async def upload_picture(
     session: Session = Depends(get_db),
     response_model=UserOutput
 ):
-    embedding = await upload_img_to_embedding(upload_image)
-    embedding = [float(x) for x in embedding]
+    embedding = await upload_img_to_embedding(upload_image,multiple=False)
+    # upload_img_to_embedding return a list of embeddings hence must squeeze() dimension 0
+    embedding = [float(x) for x in embedding.squeeze(0)]
 
     try:
         return UserService(session=session).update_user_by_id(
@@ -51,7 +52,8 @@ async def upload_picture_godmode(
     session: Session = Depends(get_db),
 ):
     embedding = await upload_img_to_embedding(upload_image)
-    embedding = [float(x) for x in embedding]
+    # upload_img_to_embedding return a list of embeddings hence must squeeze() dimension 0
+    embedding = [float(x) for x in embedding.squeeze(0)]
 
     try:
         return UserService(session=session).update_user_by_id(

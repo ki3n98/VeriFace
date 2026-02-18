@@ -16,7 +16,7 @@ MAX_DIMENSION = 1280  # Max width or height in pixels for faster face detection
 
 
 
-async def upload_img_to_embedding(upload_image: UploadFile = File(...)):
+async def upload_img_to_embedding(upload_image: UploadFile = File(...),multiple = True):
     if upload_image.content_type not in ALLOWED:
         raise HTTPException(status_code=415, detail=f"Unsupported media type: {upload_image.content_type}")
 
@@ -26,9 +26,9 @@ async def upload_img_to_embedding(upload_image: UploadFile = File(...)):
     arr = np.frombuffer(data, np.uint8)
     img = cv2.imdecode(arr,cv2.IMREAD_COLOR)
 
-    embeddings = await run_in_threadpool(model.img_to_embedding, img)
+    embeddings = await run_in_threadpool(model.img_to_embedding, img, multiple)
 
-    return embeddings[0]
+    return embeddings
 
 
 async def has_embedding(session, user_id: int) -> bool: 

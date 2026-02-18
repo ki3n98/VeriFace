@@ -16,28 +16,19 @@ class ModelService:
         """
         Run Facenet through an image to return the embeddings. 
         If 1 face is detected, return 1 embedding; 
-        if multiple=True and detect multiple faces, return a list of embedding
+        if multiple=True detect >= 1 faces, return a list of embedding
         """
         faces = self.mtcnn(img)
         if faces is None:
             raise HTTPException(status_code = 400, detail = 'No face detected')
-        elif len(faces) == 1:
-            with torch.no_grad():
-                emb = self.embedder(faces[0].unsqueeze(0).to(self.device))
-                emb = torch.nn.functional.normalize(emb,p=2,dim =1)
-                return emb
 
-        elif multiple and len(faces) >= 2: 
-                embs = []
-                with torch.no_grad():
-                    for face in faces:
-                        emb = self.embedder(face.unsqueeze(0).to(self.device))
-                        emb = torch.nn.functional.normalize(emb,p=2,dim =1)
-                        embs.append(emb)
-                return embs
-
-        else:
+        if not multiple and len(faces) > 1:
             raise HTTPException(status_code=400, detail="Multiple faces detected.")
+        else:
+            with torch.no_grad():
+                emb = self.embedder(faces.to(self.device))
+                embs = torch.nn.functional.normalize(emb,p=2,dim =1)
+        return embs
     
 
 
