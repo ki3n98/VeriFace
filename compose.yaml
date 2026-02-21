@@ -15,6 +15,7 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    
     develop:
       watch:
         - action: rebuild
@@ -34,9 +35,31 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+  ngrok-frontend:
+    image: ngrok/ngrok:latest
+    command: 
+      ["http","web:3000"]
+      # ["http","web:3000","--log-level=info","--log=stdout"] logging ngrok info
+    environment:
+      - NGROK_AUTHTOKEN=39uKXhAsUtknHYJbsVD9CNj9Xex_7sd2WdRZWE1pRv8iovLcr
+    depends_on:
+      - web
+    networks:
+      - app-network
 
+  ngrok-backend:
+    image: ngrok/ngrok:latest
+    command: ["http", "server:80"]
+    environment:
+      - NGROK_AUTHTOKEN=34ahstV82o4bMOAsf2vMLwyU8wT_6vAVmPnxQXZuvB2yTwcan
+    depends_on:
+      - web
+    networks:
+      - app-network
+      
 
   web:
+
     build:
       context: ./frontend
       dockerfile: Dockerfile

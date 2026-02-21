@@ -26,6 +26,8 @@ app.add_middleware(
 app.include_router(router=authRouter, tags=["auth"], prefix="/auth")
 app.include_router(router=protectedRouter, tags=["protected"], prefix="/protected")
 
+print("\033[95mFRONTEND PUBLIC ADDRESS: https://conchiferous-nola-pervertible.ngrok-free.dev\033[0m")
+print("\033[95mBACKEND PUBLIC ADDRESS: https://shayna-unswabbed-baroquely.ngrok-free.dev\033[0m")
 
 @app.get("/")
 def read_root():
