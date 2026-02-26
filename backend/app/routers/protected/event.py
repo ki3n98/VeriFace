@@ -429,3 +429,4 @@ async def send_invite_emails(
             status_code=500,
             detail=f"Failed to send invite emails: {str(error)}"
         )
+    

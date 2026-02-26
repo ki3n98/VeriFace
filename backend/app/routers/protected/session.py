@@ -215,6 +215,7 @@ async def check_in_with_face(
 ):
     try:
         # Convert image -> face embedding (ensures 1 face, size, etc.)
+        
         embs = await upload_img_to_embedding(upload_image)
     except Exception as error:
             print(error)
@@ -231,7 +232,39 @@ async def check_in_with_face(
             results.append({"success": False, "error": str(error)})
     return results
 
- 
+@sessionRouter.post('/camera')
+async def turn_on_camera(
+):
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Phone Camera</title>
+    </head>
+    <body>
+        <h2>Phone Camera Test</h2>
+        <video id="video" autoplay playsinline width="100%"></video>
+
+        <script>
+            async function startCamera() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: "environment" },  // back camera
+                        audio: false
+                    });
+                    const video = document.getElementById("video");
+                    video.srcObject = stream;
+                } catch (err) {
+                    alert("Camera access denied or not supported.");
+                    console.error(err);
+                }
+            }
+
+            startCamera();
+        </script>
+    </body>
+    </html>
+    """
 
 
         
