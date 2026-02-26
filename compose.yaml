@@ -39,7 +39,7 @@ services:
     image: ngrok/ngrok:latest
     command: 
       ["http","web:3000"]
-      # ["http","web:3000","--log-level=info","--log=stdout"] logging ngrok info
+      # ["http","web:3000","--log-level=info","--log=stdout"]
     environment:
       - NGROK_AUTHTOKEN=39uKXhAsUtknHYJbsVD9CNj9Xex_7sd2WdRZWE1pRv8iovLcr
     depends_on:
