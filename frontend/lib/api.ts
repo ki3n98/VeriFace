@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://shayna-unswabbed-baroquely.ngrok-free.dev";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:80";
 
 interface ApiResponse<T> {
   data?: T;
@@ -40,6 +40,7 @@ class ApiClient {
     // Start from caller headers (if any)
     const headers: Record<string, string> = {
       accept: "application/json",
+      "ngrok-skip-browser-warning": "true",
       ...(options.headers as Record<string, string>),
     };
 
@@ -181,6 +182,7 @@ class ApiClient {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
+          "ngrok-skip-browser-warning": "true",
         },
         body: formData,
       });

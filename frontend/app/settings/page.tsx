@@ -105,6 +105,16 @@ export default function SettingsPage() {
             {isSidebarCollapsed ? "E" : "Events"}
           </Link>
           <Link
+            href="/participation"
+            className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
+              pathname?.startsWith('/participation')
+                ? 'bg-[var(--sidebar-accent)] font-medium'
+                : 'hover:bg-[var(--sidebar-accent)]/50'
+            }`}
+          >
+            {isSidebarCollapsed ? "P" : "Participation"}
+          </Link>
+          <Link
             href="/settings"
             className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
               pathname === '/settings'

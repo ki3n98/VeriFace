@@ -84,6 +84,7 @@
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-inter: var(--font-inter);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-background2: var(--background2);
@@ -127,17 +128,105 @@
 @layer base {
   * {
     @apply border-border;
+    box-sizing: border-box;
   }
 
   body {
   @apply text-foreground;
   background: var(--background); /* <-- gradient works here */
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
+}
+
+/* Participation page: prevent horizontal overflow */
+.participation-page {
+  overflow-x: hidden;
+}
+
+/* Participation main - atmospheric gradient background */
+.participation-main {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(168, 139, 250, 0.18), transparent 50%),
+    radial-gradient(circle at 85% 75%, rgba(59, 130, 246, 0.16), transparent 50%),
+    linear-gradient(135deg, #F4F2FF, #EAF2FF, #FFEFF6);
+  box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.04);
+}
+
+.dark .participation-main {
+  background: #0f0f12;
+  box-shadow: none;
+}
+
+/* Cold Calling Wheel styles */
+.wheel-wrapper {
+  outline: none;
+  backdrop-filter: blur(6px);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 50%;
+}
+
+.dark .wheel-wrapper {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.wheel-card {
+  border-radius: 50%;
+  background: transparent;
+}
+
+.wheel:hover,
+.wheel:focus {
+  box-shadow: 0 18px 40px rgba(28, 30, 34, 0.08), 0 6px 16px rgba(28, 30, 34, 0.06);
+  transform: translateY(-6px);
+}
+
+.wheel {
+  filter: drop-shadow(0 20px 30px rgba(28, 30, 34, 0.06));
+}
+
+/* Spin button focus - circular glow, no outline */
+.spin-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.4);
+}
+
+.spin-btn:hover {
+  transform: scale(1.08);
+}
+
+.spin-btn {
+  transition: transform 180ms ease;
+}
+
+/* Screen reader only - Tailwind v4 may not include by default */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 #page-root {
   min-height: 100vh;
   width: 100%;
   display: block; /* Prevent global flex/grid styles from affecting layouts */
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 0.8s ease-out;
 }
