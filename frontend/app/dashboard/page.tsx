@@ -37,7 +37,7 @@ import {
   Cell,
   Tooltip,
 } from "recharts";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api";
@@ -45,6 +45,7 @@ import { AddMemberModal } from "@/app/events/components/AddMemberModal";
 import { QRCodeModal } from "@/app/dashboard/components/QRCodeModal";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { StatusDropdown } from "@/app/dashboard/components/StatusDropdown";
+import { useSessionWebSocket } from "@/lib/hooks/useWebSocket";
 import { X, Shield } from "lucide-react";
 
 interface EventMember {
@@ -163,6 +164,33 @@ export default function Dashboard() {
     ? parseInt(searchParams.get("eventId")!)
     : null;
   const userRole = searchParams?.get("role") as "owner" | "admin" | null;
+
+  // Live check-in via WebSocket
+  const handleLiveCheckIn = useCallback((data: any) => {
+    // Update the attendance list — change user's status to "present"
+    setAttendance((prev) =>
+      prev.map((record) =>
+        record.user_id === data.user_id
+          ? { ...record, status: "present", check_in_time: data.check_in_time }
+          : record,
+      ),
+    );
+    // Update summary counts
+    setAttendanceSummary((prev) =>
+      prev
+        ? {
+            ...prev,
+            present: prev.present + 1,
+            absent: Math.max(0, prev.absent - 1),
+          }
+        : prev,
+    );
+  }, []);
+
+  const { isConnected } = useSessionWebSocket(
+    activeTab === "sessions" ? selectedSessionId : null,
+    handleLiveCheckIn,
+  );
 
   // Selected session data for summary cards and donut (default: latest session)
   const selectedSessionData = (() => {
@@ -1219,6 +1247,12 @@ export default function Dashboard() {
                       </option>
                     ))}
                 </select>
+                {isConnected && (
+                  <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                    <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                    Live
+                  </span>
+                )}
               </div>
               {selectedSessionId && (
                 <Button

@@ -10,8 +10,9 @@ from app.util.protectRoute import get_current_user
 from app.util.permission import check_permission
 from app.db.models.session import Session as SessionModel
 from sqlalchemy.orm import Session
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, WebSocket, WebSocketDisconnect
 from app.util.embeddings import upload_img_to_embedding
+from app.util.ws_manager import manager
 
 
 class SessionIdRequest(BaseModel):
@@ -228,6 +229,15 @@ async def check_in_with_face(
             emb = [float(x) for x in emb]
             result = service.check_in_with_embedding(session_id=session_id, face_embedding=emb)
             results.append({"success": True, "data": result})
+            # Broadcast to dashboard clients watching this session
+            # Convert datetime to string since send_json uses json.dumps
+            ws_data = {**result}
+            if ws_data.get("check_in_time"):
+                ws_data["check_in_time"] = str(ws_data["check_in_time"])
+            await manager.broadcast_to_session(session_id, {
+                "type": "checkin",
+                "data": ws_data
+            })
         except Exception as error:
             results.append({"success": False, "error": str(error)})
     return results
