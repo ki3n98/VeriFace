@@ -45,13 +45,14 @@ import { AddMemberModal } from "@/app/events/components/AddMemberModal";
 import { QRCodeModal } from "@/app/dashboard/components/QRCodeModal";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { StatusDropdown } from "@/app/dashboard/components/StatusDropdown";
-import { X } from "lucide-react";
+import { X, Shield } from "lucide-react";
 
 interface EventMember {
   id: number;
   first_name: string;
   last_name: string;
   email: string;
+  role: string;
 }
 
 interface AttendanceRecord {
@@ -161,6 +162,7 @@ export default function Dashboard() {
   const eventId = searchParams?.get("eventId")
     ? parseInt(searchParams.get("eventId")!)
     : null;
+  const userRole = searchParams?.get("role") as "owner" | "admin" | null;
 
   // Selected session data for summary cards and donut (default: latest session)
   const selectedSessionData = (() => {
@@ -311,6 +313,26 @@ export default function Dashboard() {
           setMembers(response.data);
         }
       });
+    }
+  };
+
+  const handleToggleRole = async (member: EventMember) => {
+    if (!eventId) return;
+    const newRole = member.role === "admin" ? "member" : "admin";
+    try {
+      const response = await apiClient.updateMemberRole(eventId, member.id, newRole);
+      if (response.error) {
+        alert(`Failed to update role: ${response.error}`);
+        return;
+      }
+      // Refresh members list
+      const membersResponse = await apiClient.getEventUsers(eventId);
+      if (!membersResponse.error && membersResponse.data) {
+        setMembers(membersResponse.data);
+      }
+    } catch (error) {
+      console.error("Error updating role:", error);
+      alert("Failed to update role. Please try again.");
     }
   };
 
@@ -676,8 +698,10 @@ export default function Dashboard() {
             </Button>
           </div>
           <div className="flex items-center gap-2">
-            <div className="px-3 py-1.5 bg-gray-800 text-white rounded-full text-sm font-medium">
-              Admin
+            <div className={`px-3 py-1.5 rounded-full text-sm font-medium text-white ${
+              userRole === "owner" ? "bg-purple-700" : "bg-blue-600"
+            }`}>
+              {userRole === "owner" ? "Owner" : "Admin"}
             </div>
           </div>
         </div>
@@ -1077,6 +1101,7 @@ export default function Dashboard() {
                     <TableRow>
                       <TableHead>Student</TableHead>
                       <TableHead>Student ID</TableHead>
+                      <TableHead>Role</TableHead>
                       <TableHead className="w-12">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1084,7 +1109,7 @@ export default function Dashboard() {
                     {loadingMembers ? (
                       <TableRow>
                         <TableCell
-                          colSpan={3}
+                          colSpan={4}
                           className="text-center py-8 text-muted-foreground"
                         >
                           Loading members...
@@ -1093,7 +1118,7 @@ export default function Dashboard() {
                     ) : members.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={3}
+                          colSpan={4}
                           className="text-center py-8 text-muted-foreground"
                         >
                           {eventId
@@ -1126,6 +1151,33 @@ export default function Dashboard() {
                           </TableCell>
                           <TableCell className="font-mono text-sm">
                             {formatStudentId(member.id)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Badge className={
+                                member.role === "owner"
+                                  ? "bg-purple-500 hover:bg-purple-600"
+                                  : member.role === "admin"
+                                  ? "bg-blue-500 hover:bg-blue-600"
+                                  : "bg-gray-500 hover:bg-gray-600"
+                              }>
+                                {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                              </Badge>
+                              {userRole === "owner" && member.role !== "owner" && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleRole(member);
+                                  }}
+                                  className="p-1 rounded hover:bg-gray-100 transition-colors"
+                                  title={member.role === "admin" ? "Demote to member" : "Promote to admin"}
+                                >
+                                  <Shield className={`h-4 w-4 ${
+                                    member.role === "admin" ? "text-blue-500" : "text-gray-400"
+                                  }`} />
+                                </button>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             <button
@@ -1172,7 +1224,7 @@ export default function Dashboard() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-primary text-primary hover:bg-primary/10"
+                  className="border-primary text-white hover:bg-primary/10"
                   onClick={() => handleViewQR(selectedSessionId)}
                 >
                   <QrCode className="h-4 w-4 mr-2" />

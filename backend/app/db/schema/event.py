@@ -50,6 +50,10 @@ class EventId(BaseModel):
     id:int
 
 
+class EventWithRole(EventOutput):
+    role: str
+
+
 class InviteEmailResponse(BaseModel):
     success: bool
     message: str

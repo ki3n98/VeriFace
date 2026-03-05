@@ -2,14 +2,14 @@ from app.db.repository.eventUserRepo import EventUserRepository
 from app.db.models.event_user import EventUser
 # from app.service.eventService import EventService
 from app.service.userService import UserService
-from app.db.schema.EventUser import EventUserCreate, EventUserRemove
+from app.db.schema.EventUser import EventUserCreate, EventUserRemove, MemberWithRole
 from app.db.schema.event import EventOutput
 from app.db.schema.user import UserOutput, UserInCreate
 from app.db.schema.csv import CSVUploadSuccess, CSVUploadFailure, CSVRowError
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
-from typing import List, Union, Dict
+from typing import List, Optional, Union, Dict, Tuple
 
 
 class EventUserService:
@@ -44,8 +44,8 @@ class EventUserService:
             raise HTTPException(status_code=400, detail="Removing relationship ran into an error.")
         
 
-    def get_users(self, event_id: int, exclude_creator: bool = True) -> List[UserOutput]:
-        """Return users in the event. By default excludes the event creator (admin) from the list."""
+    def get_users(self, event_id: int, exclude_creator: bool = True) -> List[MemberWithRole]:
+        """Return users in the event with roles. By default excludes the event creator (owner) from the list."""
         try:
             return self.__EventUserRepository.get_users_from_event(
                 event_id=event_id, exclude_creator=exclude_creator
@@ -53,6 +53,15 @@ class EventUserService:
         except Exception as error:
             print(error)
             raise error
+
+    def get_user_role(self, user_id: int, event_id: int) -> Optional[str]:
+        return self.__EventUserRepository.get_user_role(user_id=user_id, event_id=event_id)
+
+    def update_user_role(self, user_id: int, event_id: int, role: str) -> bool:
+        return self.__EventUserRepository.update_user_role(user_id=user_id, event_id=event_id, role=role)
+
+    def get_managed_events(self, user_id: int):
+        return self.__EventUserRepository.get_managed_events(user_id=user_id)
         
 
     def get_event(self, user_id:int) -> List[EventOutput]:

@@ -25,9 +25,8 @@ export default function EventsPage() {
   const [eventToDelete, setEventToDelete] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleEventClick = (eventId: number) => {
-    // Navigate to dashboard with event ID (can be used later for filtering)
-    router.push(`/dashboard?eventId=${eventId}`);
+  const handleEventClick = (eventId: number, role: string) => {
+    router.push(`/dashboard?eventId=${eventId}&role=${role}`);
   };
 
   const handleLogout = () => {
@@ -196,17 +195,28 @@ export default function EventsPage() {
             <Card
               key={event.id}
               className="cursor-pointer hover:shadow-lg transition-shadow relative group"
-              onClick={() => handleEventClick(event.id)}
+              onClick={() => handleEventClick(event.id, event.role)}
             >
               <CardContent className="p-6">
-                {/* Delete button - appears on hover */}
-                <button
-                  onClick={(e) => handleDeleteEventClick(event.id, e)}
-                  className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full bg-red-500 hover:bg-red-600 text-white"
-                  aria-label="Delete event"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                {/* Delete button - only for owners, appears on hover */}
+                {event.role === "owner" && (
+                  <button
+                    onClick={(e) => handleDeleteEventClick(event.id, e)}
+                    className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full bg-red-500 hover:bg-red-600 text-white"
+                    aria-label="Delete event"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+
+                {/* Role badge */}
+                <span className={`absolute top-4 left-4 text-xs font-medium px-2 py-1 rounded-full ${
+                  event.role === "owner"
+                    ? "bg-purple-100 text-purple-700"
+                    : "bg-blue-100 text-blue-700"
+                }`}>
+                  {event.role === "owner" ? "Owner" : "Admin"}
+                </span>
 
                 {/* Event Image Placeholder */}
                 <div className="w-full h-48 bg-muted rounded-lg mb-4 flex items-center justify-center">

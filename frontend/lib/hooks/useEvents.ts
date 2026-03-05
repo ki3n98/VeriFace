@@ -8,6 +8,7 @@ export interface Event {
   end_date?: string
   location?: string
   user_id?: number
+  role: 'owner' | 'admin'
 }
 
 export function useEvents() {
@@ -19,15 +20,15 @@ export function useEvents() {
     async function fetchEvents() {
       setLoading(true)
       setError(null)
-      
-      const response = await apiClient.get<Event[]>('/protected/event/getOwnedEvents')
-      
+
+      const response = await apiClient.get<Event[]>('/protected/event/getManagedEvents')
+
       if (response.error) {
         setError(response.error)
       } else if (response.data) {
         setEvents(Array.isArray(response.data) ? response.data : [])
       }
-      
+
       setLoading(false)
     }
 
@@ -36,17 +37,16 @@ export function useEvents() {
 
   const refetch = async () => {
     setLoading(true)
-    const response = await apiClient.get<Event[]>('/protected/event/getOwnedEvents')
-    
+    const response = await apiClient.get<Event[]>('/protected/event/getManagedEvents')
+
     if (response.error) {
       setError(response.error)
     } else if (response.data) {
       setEvents(Array.isArray(response.data) ? response.data : [])
     }
-    
+
     setLoading(false)
   }
 
   return { events, loading, error, refetch }
 }
-

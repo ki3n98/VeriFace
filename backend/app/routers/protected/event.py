@@ -4,8 +4,8 @@ from app.util.protectRoute import get_current_user
 from app.util.permission import check_permission
 from app.util.csv_processor import validate_csv_file, parse_and_validate_csv
 from app.db.schema.user import UserOutput
-from app.db.schema.event import EventInCreate, EventToRemove, EventId, EventOutput, InviteEmailResponse
-from app.db.schema.EventUser import EventUserCreate, EventUserRemove, MemberAddRequest, MemberRemoveRequest
+from app.db.schema.event import EventInCreate, EventToRemove, EventId, EventOutput, EventWithRole, InviteEmailResponse
+from app.db.schema.EventUser import EventUserCreate, EventUserRemove, MemberAddRequest, MemberRemoveRequest, RoleUpdateRequest, MemberWithRole
 from app.db.schema.user import UserInCreate
 from app.db.schema.csv import CSVUploadSuccess, CSVUploadFailure, CSVRowError
 from app.service.eventService import EventService
@@ -29,10 +29,10 @@ async def create_event(
     event_details.user_id = user.id
     try:
         event =  EventService(session=session).create_event(event_details=event_details)
-        
-        #add relationship to EventUser table
-        # relationship = EventUserCreate(user_id=user.id, event_id=event.id)
-        # EventUserService(session=session).add_relationship(event_user=relationship)
+
+        #add relationship to EventUser table with owner role
+        relationship = EventUserCreate(user_id=user.id, event_id=event.id, role="owner")
+        EventUserService(session=session).add_relationship(event_user=relationship)
 
         return event
     except Exception as error:
@@ -52,11 +52,12 @@ async def remove_event(
         if not check_permission(
             user_id=user.id,
             event_id=event_to_remove.event_id,
-            session=session
+            session=session,
+            required_role="owner"
         ):
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Current user does not have permission to remove event.")
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only the event owner can delete an event.")
 
         # Cascade delete handles: Attendance → Sessions → EventUsers → Event
         EventService(session=session).remove_event(event_to_remove)
@@ -123,7 +124,7 @@ async def get_users(
     event_id: EventId,
     user: UserOutput = Depends(get_current_user),
     session: Session = Depends(get_db),
-) -> List[UserOutput]:
+) -> List[MemberWithRole]:
     try:
         if not check_permission(
             user_id=user.id, 
@@ -182,6 +183,88 @@ async def get_owned_events(
     except Exception as error:
         print(error)
         raise error
+
+
+@eventRouter.get("/getManagedEvents")
+async def get_managed_events(
+    user: UserOutput = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> List[EventWithRole]:
+    """Return events where user is owner or admin, with role field."""
+    try:
+        eu_service = EventUserService(session=session)
+        managed = eu_service.get_managed_events(user_id=user.id)
+
+        # Also include owned events (in case owner row doesn't exist in EventUser yet)
+        owned_events = EventService(session=session).get_events_by_owner(user_id=user.id)
+
+        result_map = {}
+        # Add owned events as owner
+        for event in owned_events:
+            result_map[event.id] = EventWithRole(
+                id=event.id,
+                event_name=event.event_name,
+                user_id=event.user_id,
+                start_date=event.start_date,
+                end_date=event.end_date,
+                location=event.location,
+                role="owner",
+            )
+        # Add/overwrite with managed events (which have actual role from EventUser)
+        for event, role in managed:
+            eid = event.id
+            if eid not in result_map:
+                result_map[eid] = EventWithRole(
+                    id=event.id,
+                    event_name=event.event_name,
+                    user_id=event.user_id,
+                    start_date=event.start_date,
+                    end_date=event.end_date,
+                    location=event.location,
+                    role=role,
+                )
+
+        return list(result_map.values())
+    except Exception as error:
+        print(error)
+        raise error
+
+
+@eventRouter.post("/{event_id}/updateMemberRole")
+async def update_member_role(
+    event_id: int,
+    body: RoleUpdateRequest,
+    user: UserOutput = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> dict:
+    """Owner-only: promote/demote a member's role."""
+    try:
+        if not check_permission(user_id=user.id, event_id=event_id, session=session, required_role="owner"):
+            raise HTTPException(
+                status_code=403,
+                detail="Only the event owner can change member roles."
+            )
+
+        if body.user_id == user.id:
+            raise HTTPException(status_code=400, detail="You cannot change your own role.")
+
+        # Prevent changing the event creator's role
+        event = EventService(session=session).get_event_by_id(event_id)
+        if body.user_id == event.user_id:
+            raise HTTPException(status_code=400, detail="Cannot change the event owner's role.")
+
+        success = EventUserService(session=session).update_user_role(
+            user_id=body.user_id, event_id=event_id, role=body.role
+        )
+        if not success:
+            raise HTTPException(status_code=404, detail="User is not a member of this event.")
+
+        return {"success": True, "message": f"User {body.user_id} role updated to {body.role}"}
+    except HTTPException:
+        raise
+    except Exception as error:
+        print(error)
+        raise HTTPException(status_code=500, detail=str(error))
 
 
 @eventRouter.post(

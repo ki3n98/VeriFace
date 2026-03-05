@@ -227,8 +227,16 @@ class ApiClient {
         first_name: string;
         last_name: string;
         email: string;
+        role: string;
       }>
     >("/protected/event/getUsers", { id: eventId });
+  }
+
+  async updateMemberRole(eventId: number, userId: number, role: string) {
+    return this.post<{ success: boolean; message: string }>(
+      `/protected/event/${eventId}/updateMemberRole`,
+      { user_id: userId, role }
+    );
   }
 
   async removeEvent(eventId: number) {

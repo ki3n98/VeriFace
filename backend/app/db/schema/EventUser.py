@@ -1,9 +1,10 @@
 from pydantic import BaseModel, EmailStr
-from typing import Union
+from typing import Literal, Union
 
 class EventUserCreate(BaseModel):
     user_id:int
     event_id: int
+    role: str = "member"
 
 class EventUserRemove(BaseModel):
     user_id:int
@@ -19,3 +20,16 @@ class MemberRemoveRequest(BaseModel):
     first_name: str
     last_name: str
     email: EmailStr
+
+
+class RoleUpdateRequest(BaseModel):
+    user_id: int
+    role: Literal["admin", "member"]
+
+
+class MemberWithRole(BaseModel):
+    id: int
+    first_name: str
+    last_name: str
+    email: str
+    role: str
