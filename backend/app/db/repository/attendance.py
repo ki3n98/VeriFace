@@ -245,7 +245,7 @@ class AttendanceRepository(BaseRepository):
             per_session.append({
                 "session_id": sess_id,
                 "sequence_number": seq_num,
-                "label": f"Session #{seq_num}",
+                "label": f"Session {seq_num}",
                 "present": present,
                 "late": late,
                 "absent": absent,

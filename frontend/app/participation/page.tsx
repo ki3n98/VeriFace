@@ -92,7 +92,7 @@ export default function ParticipationPage() {
         const latestSession = [...sessions].sort(
           (a, b) => b.sequence_number - a.sequence_number
         )[0];
-        setLatestSessionLabel(`Session #${latestSession.sequence_number}`);
+        setLatestSessionLabel(`Session ${latestSession.sequence_number}`);
 
         const attendanceRes = await apiClient.getSessionAttendance(
           latestSession.id

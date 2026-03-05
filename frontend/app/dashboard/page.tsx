@@ -133,7 +133,8 @@ export default function Dashboard() {
     Array<{ id: number; event_id: number; sequence_number: number }>
   >([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | number>("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "sessions">("overview");
+  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [attendanceSummary, setAttendanceSummary] =
     useState<AttendanceSummary | null>(null);
@@ -274,7 +275,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function fetchAttendance() {
-      if (activeTab === "overview" || typeof activeTab !== "number") {
+      if (activeTab !== "sessions" || !selectedSessionId) {
         setAttendance([]);
         setAttendanceSummary(null);
         return;
@@ -282,7 +283,7 @@ export default function Dashboard() {
 
       setLoadingAttendance(true);
       try {
-        const response = await apiClient.getSessionAttendance(activeTab);
+        const response = await apiClient.getSessionAttendance(selectedSessionId);
         if (response.error) {
           console.error("Failed to fetch attendance:", response.error);
           setAttendance([]);
@@ -300,7 +301,7 @@ export default function Dashboard() {
       }
     }
     fetchAttendance();
-  }, [activeTab]);
+  }, [activeTab, selectedSessionId]);
 
   const handleMemberAdded = () => {
     // Refresh members list
@@ -393,20 +394,27 @@ export default function Dashboard() {
     setIsQRModalOpen(true);
   };
 
-  const handleSelectTab = (tab: "overview" | number) => {
+  const handleSelectTab = (tab: "overview" | "sessions") => {
     setActiveTab(tab);
+    if (tab === "sessions" && sessions.length > 0) {
+      // Auto-select latest session (highest sequence_number)
+      const sorted = [...sessions].sort(
+        (a, b) => b.sequence_number - a.sequence_number,
+      );
+      setSelectedSessionId(sorted[0].id);
+    }
   };
 
   const handleStatusChange = async (
     record: AttendanceRecord,
     newStatus: "present" | "late" | "absent",
   ) => {
-    if (typeof activeTab !== "number") return;
+    if (!selectedSessionId) return;
     setUpdatingStatusFor(record.user_id);
     try {
       const response = await apiClient.updateAttendanceStatus(
         record.user_id,
-        activeTab,
+        selectedSessionId,
         newStatus,
       );
       if (response.error) {
@@ -414,7 +422,7 @@ export default function Dashboard() {
         return;
       }
       // Refresh attendance and summary
-      const refreshResponse = await apiClient.getSessionAttendance(activeTab);
+      const refreshResponse = await apiClient.getSessionAttendance(selectedSessionId);
       if (!refreshResponse.error && refreshResponse.data) {
         setAttendance(refreshResponse.data.attendance || []);
         setAttendanceSummary(refreshResponse.data.summary || null);
@@ -809,21 +817,18 @@ export default function Dashboard() {
               >
                 Overview
               </button>
-              {[...sessions]
-                .sort((a, b) => b.sequence_number - a.sequence_number)
-                .map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => handleSelectTab(s.id)}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                      activeTab === s.id
-                        ? "border-primary text-primary"
-                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"
-                    }`}
-                  >
-                    Session #{s.sequence_number}
-                  </button>
-                ))}
+              {sessions.length > 0 && (
+                <button
+                  onClick={() => handleSelectTab("sessions")}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === "sessions"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"
+                  }`}
+                >
+                  Sessions
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -1144,23 +1149,36 @@ export default function Dashboard() {
         )}
 
         {/* Session Tab Content */}
-        {typeof activeTab === "number" && (
+        {activeTab === "sessions" && (
           <div>
-            {/* Session Actions */}
+            {/* Session Selector and Actions */}
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">
-                Session #
-                {sessions.find((s) => s.id === activeTab)?.sequence_number}
-              </h3>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-primary text-primary hover:bg-primary/10"
-                onClick={() => handleViewQR(activeTab)}
-              >
-                <QrCode className="h-4 w-4 mr-2" />
-                View QR
-              </Button>
+              <div className="flex items-center gap-3">
+                <select
+                  value={selectedSessionId ?? ""}
+                  onChange={(e) => setSelectedSessionId(Number(e.target.value))}
+                  className="border border-gray-300 rounded-md px-3 py-1.5 text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  {[...sessions]
+                    .sort((a, b) => b.sequence_number - a.sequence_number)
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        Session {s.sequence_number}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              {selectedSessionId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-primary text-primary hover:bg-primary/10"
+                  onClick={() => handleViewQR(selectedSessionId)}
+                >
+                  <QrCode className="h-4 w-4 mr-2" />
+                  View QR
+                </Button>
+              )}
             </div>
 
             {/* Attendance Summary */}

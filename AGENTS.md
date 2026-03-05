@@ -83,9 +83,17 @@ Database uses NullPool (no connection pooling) configured in `core/database.py`.
 ### Frontend: Next.js App Router (`frontend/`)
 - Pages in `app/` directory — all use `"use client"` directive
 - Centralized API client at `lib/api.ts` — all backend calls go through `apiClient`
+- Custom hooks in `lib/hooks/` — `useEvents` fetches owned events from `/protected/event/getOwnedEvents`
 - Reusable UI components in `components/ui/`
 - Theme context (`contexts/themeContext.tsx`) for light/dark mode with localStorage persistence
 - Path alias `@/` maps to project root
+
+**Pages:**
+- `/dashboard` — attendance overview with weekly trends chart, per-session table, export CSV
+- `/events` — manage events and members, CSV bulk import
+- `/participation` — Cold Call Wheel: selects event via `?eventId=`, fetches latest session's present/late attendees, spins wheel to randomly call a member
+- `/picture` — upload face photo to generate/update embedding
+- `/settings` — theme preferences
 
 ### Database Schema
 Key relationships: `Users` ↔ `Events` (many-to-many via `EventsUsers`), `Events` → `Sessions` (one-to-many), `Sessions` ↔ `Users` → `Attendance` (status enum: present/late/absent). Events cascade-delete sessions and attendance.
@@ -102,10 +110,18 @@ Key relationships: `Users` ↔ `Events` (many-to-many via `EventsUsers`), `Event
 
 **Protected (require `Authorization: Bearer <token>`):**
 - `POST /protected/uploadPicture` — Upload face image, generate/update embedding
+- `GET /protected/testToken` — Validate token and return current user info
 - `POST /protected/event/createEvent`, `POST /protected/event/removeEvent`
-- `POST /protected/event/addMember`, `POST /protected/event/getUsers`
+- `POST /protected/event/getOwnedEvents` — List events owned by current user
+- `POST /protected/event/{eventId}/addMember`, `POST /protected/event/{eventId}/removeMember`
+- `POST /protected/event/getUsers` — Get members of an event
 - `POST /protected/event/{eventId}/uploadUserCSV` — Bulk import users from CSV
+- `POST /protected/event/{eventId}/sendInviteEmails` — Email invitations to event members
 - `POST /protected/session/createSession` — Creates session and auto-populates attendance
+- `POST /protected/session/getSessions` — Get all sessions for an event
+- `POST /protected/session/getAttendance` — Get attendance records for a session
+- `POST /protected/session/getEventAttendanceOverview` — Aggregated attendance stats across all sessions
+- `POST /protected/session/updateAttendanceStatus` — Manually override a user's attendance status
 - `POST /protected/session/checkin` — Facial recognition check-in
 - `GET/PATCH /protected/settings/` — User theme preferences
 - `POST /protected/model/hasEmbedding` — Check if user has face data
@@ -141,4 +157,11 @@ dbname=postgres
 SECRET_KEY=...
 ```
 
+Frontend `.env.local` (gitignored):
+```
+NEXT_PUBLIC_API_URL=http://localhost:80   # or ngrok URL for remote testing
+```
+
 JWT tokens expire in 2.5 hours. Stored in localStorage, sent as Bearer token.
+
+The project uses **ngrok** for public tunneling during development/demo (URLs printed in `main.py` on startup). Update those print statements when ngrok URLs change.
