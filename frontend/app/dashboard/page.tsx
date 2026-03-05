@@ -125,6 +125,7 @@ export default function Dashboard() {
   );
   const [isDeletingMember, setIsDeletingMember] = useState(false);
   const [isSendingInvites, setIsSendingInvites] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
@@ -457,6 +458,92 @@ export default function Dashboard() {
 
   const formatStudentId = (id: number) => {
     return `STU-2024-${String(id).padStart(3, "0")}`;
+  };
+
+  const handleExportReport = async () => {
+    if (!eventId || members.length === 0) return;
+    setIsExporting(true);
+    try {
+      const sessionsRes = await apiClient.getSessions(eventId);
+      const sessionsList = sessionsRes.data?.sessions ?? [];
+      const sortedSessions = [...sessionsList].sort(
+        (a, b) => a.sequence_number - b.sequence_number
+      );
+
+      const studentMap = new Map<
+        number,
+        {
+          name: string;
+          studentId: string;
+          email: string;
+          sessions: Record<number, string>;
+        }
+      >();
+
+      for (const m of members) {
+        studentMap.set(m.id, {
+          name: `${m.first_name} ${m.last_name}`,
+          studentId: formatStudentId(m.id),
+          email: m.email,
+          sessions: {},
+        });
+      }
+
+      for (const session of sortedSessions) {
+        const attRes = await apiClient.getSessionAttendance(session.id);
+        const records = attRes.data?.attendance ?? [];
+        for (const r of records) {
+          const entry = studentMap.get(r.user_id);
+          if (entry) {
+            entry.sessions[session.id] = r.status;
+          }
+        }
+      }
+
+      const escapeCsv = (s: string) => {
+        if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+          return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+      };
+
+      const sessionHeaders = sortedSessions.map(
+        (s) => `Session ${s.sequence_number}`
+      );
+      const headerRow = [
+        "Student Name",
+        "Student ID",
+        "Email",
+        ...sessionHeaders,
+      ].map(escapeCsv).join(",");
+
+      const dataRows = Array.from(studentMap.values()).map((entry) => {
+        const sessionValues = sortedSessions.map(
+          (s) => entry.sessions[s.id] ?? "—"
+        );
+        return [
+          entry.name,
+          entry.studentId,
+          entry.email,
+          ...sessionValues,
+        ]
+          .map(escapeCsv)
+          .join(",");
+      });
+
+      const csv = [headerRow, ...dataRows].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `attendance-report-${eventId}-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Export failed:", error);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -969,9 +1056,13 @@ export default function Dashboard() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Members</CardTitle>
-                  <Button className="bg-primary hover:bg-primary/90">
+                  <Button
+                    className="bg-primary hover:bg-primary/90"
+                    onClick={handleExportReport}
+                    disabled={!eventId || members.length === 0 || isExporting}
+                  >
                     <Download className="h-4 w-4 mr-2" />
-                    Export Report
+                    {isExporting ? "Exporting…" : "Export Report"}
                   </Button>
                 </div>
               </CardHeader>
