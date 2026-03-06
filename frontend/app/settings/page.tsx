@@ -26,7 +26,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [avatarSignedUrl, setAvatarSignedUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     async function fetchUser() {
@@ -58,11 +58,14 @@ export default function SettingsPage() {
     setUploading(true)
     try {
       const res = await apiClient.uploadAvatar(file)
-      if (res.data?.signed_url) {
+      if (res.error) {
+        alert(res.error)
+      } else if (res.data?.signed_url) {
         setAvatarSignedUrl(res.data.signed_url)
       }
     } catch (error) {
       console.error('Avatar upload failed:', error)
+      alert('Upload failed. Please try again.')
     } finally {
       setUploading(false)
     }

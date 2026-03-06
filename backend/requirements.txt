@@ -23,6 +23,9 @@ httpx==0.28.1
 # --- Supabase ---
 supabase>=2.0.0
 
+# --- Content moderation ---
+nudenet==3.4.2
+
 # --- ML / CV (torch, torchvision & facenet-pytorch installed in Dockerfile with cu128 for sm_120 support) ---
 tqdm
 scipy==1.16.3
