@@ -161,6 +161,7 @@ class ApiClient {
         first_name: string;
         last_name: string;
         email: string;
+        avatar_url: string | null;
       };
     }>("/protected/testToken");
   }
@@ -335,6 +336,17 @@ class ApiClient {
       session_id: sessionId,
       status,
     });
+  }
+
+  // Avatar
+  async uploadAvatar(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return this.post<{ signed_url: string }>("/protected/avatar/upload", formData);
+  }
+
+  async getAvatarUrl() {
+    return this.get<{ signed_url: string | null }>("/protected/avatar/url");
   }
 
   // User Settings

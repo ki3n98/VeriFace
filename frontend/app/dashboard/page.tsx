@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -104,6 +104,7 @@ interface User {
   first_name: string;
   last_name: string;
   email: string;
+  avatar_url: string | null;
 }
 
 export default function Dashboard() {
@@ -119,6 +120,7 @@ export default function Dashboard() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [avatarSignedUrl, setAvatarSignedUrl] = useState<string | null>(null);
   const [members, setMembers] = useState<EventMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
@@ -215,6 +217,10 @@ export default function Dashboard() {
         const userData = response.data?.data;
         if (userData) {
           setUser(userData);
+          if (userData.avatar_url) {
+            const urlRes = await apiClient.getAvatarUrl();
+            setAvatarSignedUrl(urlRes.data?.signed_url ?? null);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch user:", error);
@@ -605,7 +611,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex min-h-screen bg-background2">
+    <div className="flex h-screen overflow-hidden bg-background2">
       {/* Sidebar */}
       <aside
         className={`bg-[var(--sidebar)] text-[var(--sidebar-foreground)] flex flex-col transition-all duration-300 ${
@@ -690,6 +696,7 @@ export default function Dashboard() {
           ) : user ? (
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10 border-2 border-white">
+                {avatarSignedUrl && <AvatarImage src={avatarSignedUrl} alt="Avatar" />}
                 <AvatarFallback className="bg-primary text-white font-semibold">
                   {getInitials(user.first_name, user.last_name)}
                 </AvatarFallback>
@@ -708,7 +715,7 @@ export default function Dashboard() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8">
+      <main className="flex-1 p-8 overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">

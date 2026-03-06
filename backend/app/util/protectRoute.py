@@ -39,7 +39,8 @@ def get_current_user(
                 id = user.id,
                 first_name = user.first_name,
                 last_name = user.last_name,
-                email = user.email
+                email = user.email,
+                avatar_url = user.avatar_url
             )
         except Exception as error:
             print(error)

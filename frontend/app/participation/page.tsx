@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PanelLeft } from "lucide-react";
@@ -16,6 +16,7 @@ interface User {
   first_name: string;
   last_name: string;
   email: string;
+  avatar_url: string | null;
 }
 
 interface EventMember {
@@ -38,6 +39,7 @@ export default function ParticipationPage() {
 
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [avatarSignedUrl, setAvatarSignedUrl] = useState<string | null>(null);
   const [wheelMembers, setWheelMembers] = useState<EventMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [latestSessionLabel, setLatestSessionLabel] = useState<string | null>(null);
@@ -60,6 +62,10 @@ export default function ParticipationPage() {
         const userData = response.data?.data;
         if (userData) {
           setUser(userData);
+          if (userData.avatar_url) {
+            const urlRes = await apiClient.getAvatarUrl();
+            setAvatarSignedUrl(urlRes.data?.signed_url ?? null);
+          }
         } else {
           router.push("/sign-in");
         }
@@ -208,6 +214,7 @@ export default function ParticipationPage() {
           {user && (
             <div className="flex items-center gap-3 mt-4">
               <Avatar className="h-10 w-10 border-2 border-white">
+                {avatarSignedUrl && <AvatarImage src={avatarSignedUrl} alt="Avatar" />}
                 <AvatarFallback className="bg-primary text-white font-semibold">
                   {getInitials(user.first_name, user.last_name)}
                 </AvatarFallback>

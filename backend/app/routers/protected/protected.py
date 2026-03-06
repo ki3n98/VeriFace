@@ -7,6 +7,7 @@ from app.routers.protected.model import modelRouter
 from app.routers.protected.userSetting import userSettingRouter
 from app.util.embeddings import upload_img_to_embedding
 from app.util.protectRoute import get_current_user
+from app.routers.protected.avatar import avatarRouter
 from fastapi import APIRouter, Depends, UploadFile, File, Form
 from sqlalchemy.orm import Session
 
@@ -16,6 +17,7 @@ protectedRouter.include_router(router=eventRouter, tags=["event"], prefix="/even
 protectedRouter.include_router(router=sessionRouter, tags=["session"], prefix="/session")
 protectedRouter.include_router(router=modelRouter, tags=["model"], prefix="/model")
 protectedRouter.include_router(router =userSettingRouter, tags = ['userSetting'], prefix = "/settings")
+protectedRouter.include_router(router=avatarRouter, tags=["avatar"], prefix="/avatar")
 
 
 @protectedRouter.get("/testToken")

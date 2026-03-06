@@ -14,6 +14,7 @@ class UserOutput(BaseModel):
     first_name: str
     last_name: str
     email: EmailStr
+    avatar_url: Union[str, None] = None
 
 
 class UserInUpdate(BaseModel):
@@ -23,6 +24,7 @@ class UserInUpdate(BaseModel):
     email: Union[EmailStr, None] = None
     password: Union[str, None] = None
     embedding: Union[List[float], None] = None
+    
 
 
 class UserInLogin(BaseModel):

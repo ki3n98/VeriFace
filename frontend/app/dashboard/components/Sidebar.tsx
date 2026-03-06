@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface User {
   id: number;
   first_name: string;
   last_name: string;
   email: string;
+  avatar_url: string | null;
 }
 
 export default function Sidebar() {
@@ -18,6 +19,7 @@ export default function Sidebar() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [avatarSignedUrl, setAvatarSignedUrl] = useState<string | null>(null);
 
   const handleLogout = () => {
     apiClient.logout();
@@ -33,6 +35,10 @@ export default function Sidebar() {
         const userData = response.data?.data;
         if (userData) {
           setUser(userData);
+          if (userData.avatar_url) {
+            const urlRes = await apiClient.getAvatarUrl();
+            setAvatarSignedUrl(urlRes.data?.signed_url ?? null);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch user:", error);
@@ -54,7 +60,7 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 bg-[var(--sidebar)] text-[var(--sidebar-foreground)] flex flex-col">
+    <aside className="w-64 bg-[var(--sidebar)] text-[var(--sidebar-foreground)] flex flex-col h-screen sticky top-0">
       <div className="p-6 border-b border-[var(--sidebar-border)]/30">
         <Link
           href="/dashboard"
@@ -108,6 +114,7 @@ export default function Sidebar() {
         ) : user ? (
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 border-2 border-white">
+              {avatarSignedUrl && <AvatarImage src={avatarSignedUrl} alt="Avatar" />}
               <AvatarFallback className="bg-primary text-white font-semibold">
                 {getInitials(user.first_name, user.last_name)}
               </AvatarFallback>

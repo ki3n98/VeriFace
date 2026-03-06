@@ -1,5 +1,5 @@
 from app.core.database import Base
-from sqlalchemy import Column, Integer, String, ARRAY, Float
+from sqlalchemy import Column, Integer, String, ARRAY, Float, Text
 
 class User(Base):
     __tablename__ = "Users"
@@ -9,3 +9,4 @@ class User(Base):
     email = Column(String(100), unique=True, nullable=False)
     password = Column(String(250))
     embedding = Column(ARRAY(Float), nullable=True)
+    avatar_url = Column(Text, nullable=True)

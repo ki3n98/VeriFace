@@ -1,10 +1,10 @@
 "use client"
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { PanelLeft, User, Palette } from "lucide-react"
-import { useState, useEffect } from "react"
+import { PanelLeft, User, Palette, Upload } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { apiClient } from "@/lib/api"
@@ -15,6 +15,7 @@ interface User {
   first_name: string
   last_name: string
   email: string
+  avatar_url: string | null
 }
 
 export default function SettingsPage() {
@@ -23,6 +24,9 @@ export default function SettingsPage() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [avatarSignedUrl, setAvatarSignedUrl] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     async function fetchUser() {
@@ -31,8 +35,11 @@ export default function SettingsPage() {
         const userData = response.data?.data
         if (userData) {
           setUser(userData)
+          if (userData.avatar_url) {
+            const urlRes = await apiClient.getAvatarUrl()
+            setAvatarSignedUrl(urlRes.data?.signed_url ?? null)
+          }
         } else {
-          // Redirect to sign-in if not authenticated
           router.push('/sign-in')
         }
       } catch (error) {
@@ -44,6 +51,22 @@ export default function SettingsPage() {
     }
     fetchUser()
   }, [router])
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const res = await apiClient.uploadAvatar(file)
+      if (res.data?.signed_url) {
+        setAvatarSignedUrl(res.data.signed_url)
+      }
+    } catch (error) {
+      console.error('Avatar upload failed:', error)
+    } finally {
+      setUploading(false)
+    }
+  }
 
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase()
@@ -126,32 +149,6 @@ export default function SettingsPage() {
           </Link>
         </nav>
 
-        {/* Profile Section */}
-        <div className="pt-4 border-t border-[var(--sidebar-border)]/30">
-          {user ? (
-            <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10 border-2 border-white">
-                <AvatarFallback className="bg-primary text-white font-semibold">
-                  {getInitials(user.first_name, user.last_name)}
-                </AvatarFallback>
-              </Avatar>
-              {!isSidebarCollapsed && (
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm truncate">
-                    {user.first_name} {user.last_name}
-                  </div>
-                  <div className="text-xs opacity-90 truncate">
-                    {user.email}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            !isSidebarCollapsed && (
-              <div className="text-sm opacity-90">Not logged in</div>
-            )
-          )}
-        </div>
       </aside>
 
       {/* Main Content */}
@@ -189,11 +186,29 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-6">
-                <Avatar className="h-20 w-20 border-4 border-primary">
-                  <AvatarFallback className="bg-primary text-white font-semibold text-2xl">
-                    {user && getInitials(user.first_name, user.last_name)}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="flex flex-col items-center gap-2">
+                  <Avatar className="h-20 w-20 border-4 border-primary">
+                    {avatarSignedUrl && <AvatarImage src={avatarSignedUrl} alt="Avatar" />}
+                    <AvatarFallback className="bg-primary text-white font-semibold text-2xl">
+                      {user && getInitials(user.first_name, user.last_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50"
+                  >
+                    <Upload className="h-3 w-3" />
+                    {uploading ? "Uploading..." : "Change photo"}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                  />
+                </div>
                 <div className="flex-1 space-y-2">
                   <div>
                     <div className="text-sm text-gray-500">Name</div>
