@@ -243,38 +243,73 @@ async def check_in_with_face(
     return results
 
 @sessionRouter.post('/camera')
-async def turn_on_camera(
+def turn_on_camera(session_id:int
 ):
     return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Phone Camera</title>
-    </head>
-    <body>
-        <h2>Phone Camera Test</h2>
-        <video id="video" autoplay playsinline width="100%"></video>
+<!doctype html>
+<html>
+  <body>
+    <h2>Camera + Model</h2>
 
-        <script>
-            async function startCamera() {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: "environment" },  // back camera
-                        audio: false
-                    });
-                    const video = document.getElementById("video");
-                    video.srcObject = stream;
-                } catch (err) {
-                    alert("Camera access denied or not supported.");
-                    console.error(err);
-                }
-            }
+    <video id="v" autoplay playsinline style="width:100%;max-width:480px;"></video>
+    <br><br>
 
-            startCamera();
-        </script>
-    </body>
-    </html>
-    """
+    <button id="captureBtn">Check In</button>
+
+    <pre id="out"></pre>
+
+    <script>
+      const v = document.getElementById('v');
+      const out = document.getElementById('out');
+      const btn = document.getElementById('captureBtn');
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      async function start() {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false
+        });
+        v.srcObject = stream;
+
+        v.onloadedmetadata = () => {
+          canvas.width = v.videoWidth;
+          canvas.height = v.videoHeight;
+        };
+      }
+
+      async function captureAndSend() {
+        if (!canvas.width) return;
+
+        ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise(r => canvas.toBlob(r, "image/jpeg", 0.7));
+
+        const fd = new FormData();
+        fd.append("upload_image", blob, "frame.jpg");
+
+        try {
+          const res = await fetch(`https://shayna-unswabbed-baroquely.ngrok-free.dev/protected/session/checkin?session_id=__SID__`, {
+           method: "POST",
+           headers: {
+             "Authorization": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMTk1LCJleHBpcmVzIjoxNzcyMDc1NDM0LjMyMDg3ODd9.21gCOmB8zqiCD--gwe8okhPOQzfBCspzvh9JoRItlaw"
+          },
+          body: fd
+          });
+
+          const data = await res.json();
+          out.textContent = JSON.stringify(data, null, 2);
+        } catch (err) {
+          out.textContent = err.toString();
+        }
+      }
+
+      btn.addEventListener("click", captureAndSend);
+
+      start().catch(e => out.textContent = e.toString());
+    </script>
+  </body>
+</html>
+""".replace("__SID__",str(session_id))
 
 
         
