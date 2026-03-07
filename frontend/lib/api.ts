@@ -350,6 +350,13 @@ class ApiClient {
   }
 
   // User Settings
+  // Achievements
+  async getAchievements() {
+    return this.get<{
+      data: Array<{ id: string; earned: boolean }>
+    }>("/protected/achievements")
+  }
+
   async getUserSettings() {
     return this.get<{
       user_id: number;

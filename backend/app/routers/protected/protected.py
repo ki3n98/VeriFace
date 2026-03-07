@@ -8,6 +8,7 @@ from app.routers.protected.userSetting import userSettingRouter
 from app.util.embeddings import upload_img_to_embedding
 from app.util.protectRoute import get_current_user
 from app.routers.protected.avatar import avatarRouter
+from app.routers.protected.achievements import achievementsRouter
 from fastapi import APIRouter, Depends, UploadFile, File, Form
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,7 @@ protectedRouter.include_router(router=sessionRouter, tags=["session"], prefix="/
 protectedRouter.include_router(router=modelRouter, tags=["model"], prefix="/model")
 protectedRouter.include_router(router =userSettingRouter, tags = ['userSetting'], prefix = "/settings")
 protectedRouter.include_router(router=avatarRouter, tags=["avatar"], prefix="/avatar")
+protectedRouter.include_router(router=achievementsRouter, tags=["achievements"], prefix="/achievements")
 
 
 @protectedRouter.get("/testToken")
