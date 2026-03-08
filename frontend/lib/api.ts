@@ -338,6 +338,15 @@ class ApiClient {
     });
   }
 
+  async checkIn(sessionId: number, imageFile: File) {
+    const formData = new FormData();
+    formData.append("upload_image", imageFile);
+    return this.post<Array<{ success: boolean; data?: unknown; error?: string }>>(
+      `/protected/session/checkin?session_id=${sessionId}`,
+      formData
+    );
+  }
+
   // Avatar
   async uploadAvatar(file: File) {
     const formData = new FormData();

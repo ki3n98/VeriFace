@@ -43,10 +43,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api";
 import { AddMemberModal } from "@/app/events/components/AddMemberModal";
 import { QRCodeModal } from "@/app/dashboard/components/QRCodeModal";
+import { CheckInModal } from "@/app/dashboard/components/CheckInModal";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { StatusDropdown } from "@/app/dashboard/components/StatusDropdown";
 import { useSessionWebSocket } from "@/lib/hooks/useWebSocket";
-import { X, Shield } from "lucide-react";
+import { X, Shield, Camera } from "lucide-react";
 
 interface EventMember {
   id: number;
@@ -131,6 +132,7 @@ export default function Dashboard() {
   const [isSendingInvites, setIsSendingInvites] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [sessions, setSessions] = useState<
@@ -1262,15 +1264,25 @@ export default function Dashboard() {
                 )}
               </div>
               {selectedSessionId && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-primary text-white hover:bg-primary/10"
-                  onClick={() => handleViewQR(selectedSessionId)}
-                >
-                  <QrCode className="h-4 w-4 mr-2" />
-                  View QR
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-primary text-white hover:bg-primary/10"
+                    onClick={() => handleViewQR(selectedSessionId)}
+                  >
+                    <QrCode className="h-4 w-4 mr-2" />
+                    View QR
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-primary hover:bg-primary/90"
+                    onClick={() => setIsCheckInModalOpen(true)}
+                  >
+                    <Camera className="h-4 w-4 mr-2" />
+                    Start Check In
+                  </Button>
+                </div>
               )}
             </div>
 
@@ -1435,6 +1447,13 @@ export default function Dashboard() {
         isOpen={isQRModalOpen}
         onClose={() => setIsQRModalOpen(false)}
         sessionId={activeSessionId}
+      />
+
+      {/* Camera Check-In Modal */}
+      <CheckInModal
+        isOpen={isCheckInModalOpen}
+        onClose={() => setIsCheckInModalOpen(false)}
+        sessionId={selectedSessionId}
       />
 
       {/* Delete Member Confirmation */}
