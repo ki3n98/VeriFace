@@ -223,12 +223,15 @@ async def check_in_with_face(
             raise error 
 
     service = AttendanceService(session=session)
-    results = []
-    for emb in embs:
+    results = {}
+    total_embs = len(embs)
+    checkedin_embs = 0
+    for i in range(total_embs):
         try:
-            emb = [float(x) for x in emb]
+            emb = [float(x) for x in embs[i]]
             result = service.check_in_with_embedding(session_id=session_id, face_embedding=emb)
-            results.append({"success": True, "data": result})
+            results[i] = {"success": True, "data": result}
+            checkedin_embs += 1
             # Broadcast to dashboard clients watching this session
             # Convert datetime to string since send_json uses json.dumps
             ws_data = {**result}
@@ -239,8 +242,8 @@ async def check_in_with_face(
                 "data": ws_data
             })
         except Exception as error:
-            results.append({"success": False, "error": str(error)})
-    return results
+            results[i] = {"success": False, "error": str(error)}
+    return {"stats":{"num_face":total_embs,"checked_in":checkedin_embs},"result":results}
 
 @sessionRouter.post('/camera')
 def turn_on_camera(session_id:int
