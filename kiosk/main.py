@@ -36,7 +36,7 @@ def list_camera():
 
 
 if __name__ == "__main__":
-    # list_camera()
+    list_camera()
     main()
 
 

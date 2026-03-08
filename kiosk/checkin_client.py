@@ -1,6 +1,6 @@
 import cv2
 import requests
-from config import CHECKIN_ENDPOINT, CAMERA_INDEX, CAMERA_BACKEND, CHECKIN_WINDOW_NAME, warmup_camera
+from config import CHECKIN_ENDPOINT, CAMERA_INDEX, CAMERA_BACKEND, CHECKIN_WINDOW_NAME, WINDOW_WIDTH, WINDOW_HEIGHT, warmup_camera
 
 
 def run_checkin_loop(session_id: int) -> None:
@@ -46,7 +46,7 @@ def run_checkin_loop(session_id: int) -> None:
                 2,
             )
 
-            cv2.imshow(CHECKIN_WINDOW_NAME, display)
+            cv2.imshow(CHECKIN_WINDOW_NAME, cv2.resize(display, (WINDOW_WIDTH, WINDOW_HEIGHT)))
 
             key = cv2.waitKey(1) & 0xFF
 
@@ -64,19 +64,21 @@ def run_checkin_loop(session_id: int) -> None:
                     (0, 255, 255),
                     2,
                 )
-                cv2.imshow(CHECKIN_WINDOW_NAME, processing)
+                cv2.imshow(CHECKIN_WINDOW_NAME, cv2.resize(processing, (WINDOW_WIDTH, WINDOW_HEIGHT)))
                 cv2.waitKey(1)
 
                 result = _send_checkin(frame, session_id)
 
-                if result.get("success"):
-                    name = result.get("name", "Unknown")
-                    sim = result.get("similarity", 0)
-                    status_text = f"Checked in: {name} ({sim:.2f})"
-                    status_color = (0, 255, 0)
-                else:
-                    status_text = f"Failed: {result.get('error', 'Unknown error')}"
-                    status_color = (0, 0, 255)
+                print(result)
+
+                # if result.get("success"):
+                #     name = result.get("name", "Unknown")
+                #     sim = result.get("similarity", 0)
+                #     status_text = f"Checked in: {name} ({sim:.2f})"
+                #     status_color = (0, 255, 0)
+                # else:
+                #     status_text = f"Failed: {result.get('error', 'Unknown error')}"
+                #     status_color = (0, 0, 255)
     finally:
         cap.release()
         cv2.destroyWindow(CHECKIN_WINDOW_NAME)
@@ -103,12 +105,13 @@ def _send_checkin(frame, session_id: int) -> dict:
 
         if response.ok:
             data = response.json()
-            return {
-                "success": True,
-                "name": data.get("name"),
-                "similarity": data.get("similarity"),
-                "status": data.get("status"),
-            }
+            return data
+            # return {
+            #     "success": True,
+            #     "name": data.get("name"),
+            #     "similarity": data.get("similarity"),
+            #     "status": data.get("status"),
+            # }
         else:
             detail = response.json().get("detail", response.text)
             return {"success": False, "error": detail}

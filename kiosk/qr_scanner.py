@@ -1,5 +1,5 @@
 import cv2
-from config import CAMERA_INDEX, CAMERA_BACKEND, QR_SCAN_WINDOW_NAME
+from config import CAMERA_INDEX, CAMERA_BACKEND, QR_SCAN_WINDOW_NAME, WINDOW_WIDTH, WINDOW_HEIGHT
 
 
 def scan_for_session_id() -> int:
@@ -44,7 +44,7 @@ def scan_for_session_id() -> int:
                         (0, 255, 0),
                         2,
                     )
-                    cv2.imshow(QR_SCAN_WINDOW_NAME, frame)
+                    cv2.imshow(QR_SCAN_WINDOW_NAME, cv2.resize(frame, (WINDOW_WIDTH, WINDOW_HEIGHT)))
                     cv2.waitKey(500)  # Brief pause to show success
                     return session_id
                 except ValueError:
@@ -58,7 +58,7 @@ def scan_for_session_id() -> int:
                         2,
                     )
 
-            cv2.imshow(QR_SCAN_WINDOW_NAME, frame)
+            cv2.imshow(QR_SCAN_WINDOW_NAME, cv2.resize(frame, (WINDOW_WIDTH, WINDOW_HEIGHT)))
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord("q"):
