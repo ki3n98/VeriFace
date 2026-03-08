@@ -1,51 +1,67 @@
-"use client"
+"use client";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { PanelLeft, User, Shield, Trophy, type LucideIcon } from "lucide-react"
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { apiClient } from "@/lib/api"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { PanelLeft, User, Shield, Trophy, type LucideIcon } from "lucide-react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { apiClient } from "@/lib/api";
 
 interface UserData {
-  id: number
-  first_name: string
-  last_name: string
-  email: string
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  avatar_url: string | null;
 }
 
 const tabs: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/settings", label: "User Settings", icon: User },
   { href: "/settings/security", label: "Security", icon: Shield },
   { href: "/settings/achievements", label: "Achievements", icon: Trophy },
-]
+];
 
-export default function SettingsLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
-  const router = useRouter()
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
-  const [user, setUser] = useState<UserData | null>(null)
+export default function SettingsLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [user, setUser] = useState<UserData | null>(null);
+  const [avatarSignedUrl, setAvatarSignedUrl] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchUser() {
       try {
-        const response = await apiClient.getCurrentUser()
-        const userData = response.data?.data
+        const response = await apiClient.getCurrentUser();
+        const userData = response.data?.data;
         if (userData) {
-          setUser(userData)
+          setUser(userData);
+          if (userData.avatar_url) {
+            const urlRes = await apiClient.getAvatarUrl();
+            setAvatarSignedUrl(urlRes.data?.signed_url ?? null);
+          }
         } else {
-          router.push('/sign-in')
+          router.push("/sign-in");
         }
       } catch {
-        router.push('/sign-in')
+        router.push("/sign-in");
       }
     }
-    fetchUser()
-  }, [router])
+    fetchUser();
+  }, [router]);
+
+  const handleLogout = () => {
+    apiClient.logout();
+    router.replace("/sign-in");
+    router.refresh();
+  };
 
   const getInitials = (firstName: string, lastName: string) =>
-    `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase()
+    `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
 
   return (
     <div className="flex min-h-screen bg-background2">
@@ -63,7 +79,9 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
             <img src="/logo.png" alt="VeriFace Logo" className="h-8 w-auto" />
           </div>
           {!isSidebarCollapsed && (
-            <span className="text-xl font-bold whitespace-nowrap">VeriFace</span>
+            <span className="text-xl font-bold whitespace-nowrap">
+              VeriFace
+            </span>
           )}
         </Link>
 
@@ -71,9 +89,9 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           <Link
             href="/dashboard"
             className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
-              pathname === '/dashboard'
-                ? 'bg-[var(--sidebar-accent)] font-medium'
-                : 'hover:bg-[var(--sidebar-accent)]/50'
+              pathname === "/dashboard"
+                ? "bg-[var(--sidebar-accent)] font-medium"
+                : "hover:bg-[var(--sidebar-accent)]/50"
             }`}
           >
             {isSidebarCollapsed ? "H" : "Home"}
@@ -81,9 +99,9 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           <Link
             href="/events"
             className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
-              pathname === '/events'
-                ? 'bg-[var(--sidebar-accent)] font-medium'
-                : 'hover:bg-[var(--sidebar-accent)]/50'
+              pathname === "/events"
+                ? "bg-[var(--sidebar-accent)] font-medium"
+                : "hover:bg-[var(--sidebar-accent)]/50"
             }`}
           >
             {isSidebarCollapsed ? "E" : "Events"}
@@ -91,9 +109,9 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           <Link
             href="/participation"
             className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
-              pathname?.startsWith('/participation')
-                ? 'bg-[var(--sidebar-accent)] font-medium'
-                : 'hover:bg-[var(--sidebar-accent)]/50'
+              pathname?.startsWith("/participation")
+                ? "bg-[var(--sidebar-accent)] font-medium"
+                : "hover:bg-[var(--sidebar-accent)]/50"
             }`}
           >
             {isSidebarCollapsed ? "P" : "Participation"}
@@ -101,38 +119,23 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           <Link
             href="/settings"
             className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
-              pathname.startsWith('/settings')
-                ? 'bg-[var(--sidebar-accent)] font-medium'
-                : 'hover:bg-[var(--sidebar-accent)]/50'
+              pathname.startsWith("/settings")
+                ? "bg-[var(--sidebar-accent)] font-medium"
+                : "hover:bg-[var(--sidebar-accent)]/50"
             }`}
           >
             {isSidebarCollapsed ? "S" : "Settings"}
           </Link>
         </nav>
 
-        {/* Profile Section */}
+        {/* Logout */}
         <div className="pt-4 border-t border-[var(--sidebar-border)]/30">
-          {user ? (
-            <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10 border-2 border-white">
-                <AvatarFallback className="bg-primary text-white font-semibold">
-                  {getInitials(user.first_name, user.last_name)}
-                </AvatarFallback>
-              </Avatar>
-              {!isSidebarCollapsed && (
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm truncate">
-                    {user.first_name} {user.last_name}
-                  </div>
-                  <div className="text-xs opacity-90 truncate">{user.email}</div>
-                </div>
-              )}
-            </div>
-          ) : (
-            !isSidebarCollapsed && (
-              <div className="text-sm opacity-90">Not logged in</div>
-            )
-          )}
+          <button
+            onClick={handleLogout}
+            className="w-full text-left px-4 py-2 rounded-lg text-sm font-medium opacity-90 hover:bg-red-500/20 hover:text-red-400 transition"
+          >
+            {!isSidebarCollapsed && "Logout"}
+          </button>
         </div>
       </aside>
 
@@ -161,7 +164,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         <div className="border-b border-border mb-6">
           <nav className="flex gap-1">
             {tabs.map(({ href, label, icon: Icon }) => {
-              const isActive = pathname === href
+              const isActive = pathname === href;
               return (
                 <Link
                   key={href}
@@ -175,16 +178,14 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                   <Icon className="h-4 w-4" />
                   {label}
                 </Link>
-              )
+              );
             })}
           </nav>
         </div>
 
         {/* Page Content */}
-        <div className="max-w-3xl space-y-6">
-          {children}
-        </div>
+        <div className="max-w-3xl space-y-6">{children}</div>
       </main>
     </div>
-  )
+  );
 }

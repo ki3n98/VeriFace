@@ -234,7 +234,7 @@ export default function PicturePage() {
         className={styles.card}
         style={{ maxWidth: 640, margin: "24px auto" }}
       >
-        <h1 className={styles.title}>Upload Profile Picture</h1>
+        <h1 className={styles.title}>Upload Picture</h1>
         <p style={{ marginBottom: 16, color: "#666" }}>
           Add a profile picture so we can generate your embedding. JPG/PNG/WebP,
           up to 5MB.
