@@ -382,6 +382,31 @@ class ApiClient {
       body: JSON.stringify({ display_theme: theme }),
     });
   }
+
+  async updateProfile(firstName: string, lastName: string) {
+    return this.request<{
+      id: number;
+      first_name: string;
+      last_name: string;
+      email: string;
+      avatar_url: string | null;
+    }>("/protected/profile/", {
+      method: "PATCH",
+      body: JSON.stringify({ first_name: firstName, last_name: lastName }),
+    });
+  }
+
+  async requestEmailChange(newEmail: string) {
+    return this.post<{ message: string }>("/protected/email-change/request", {
+      new_email: newEmail,
+    });
+  }
+
+  async verifyEmailChange(token: string) {
+    return this.get<{ message: string }>(
+      `/protected/email-change/verify?token=${encodeURIComponent(token)}`
+    );
+  }
 }
 
 export const apiClient = new ApiClient(API_BASE_URL);

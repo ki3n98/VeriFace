@@ -1,6 +1,7 @@
 from pydantic import EmailStr, BaseModel
 from typing import Union, List
 
+
 class UserInCreate(BaseModel):
     first_name: Union[str, None] = None
     last_name: Union[str, None] = None
@@ -24,17 +25,21 @@ class UserInUpdate(BaseModel):
     email: Union[EmailStr, None] = None
     password: Union[str, None] = None
     embedding: Union[List[float], None] = None
-    
+
+
+class UserProfileUpdate(BaseModel):
+    first_name: Union[str, None] = None
+    last_name: Union[str, None] = None
 
 
 class UserInLogin(BaseModel):
     email: EmailStr
-    password : str
+    password: str
 
 
 class UserWithToken(BaseModel):
-    token:str
+    token: str
 
 
 class EmailValidator(BaseModel):
-    email:EmailStr
+    email: EmailStr

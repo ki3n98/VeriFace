@@ -9,6 +9,8 @@ from app.util.embeddings import upload_img_to_embedding
 from app.util.protectRoute import get_current_user
 from app.routers.protected.avatar import avatarRouter
 from app.routers.protected.achievements import achievementsRouter
+from app.routers.protected.emailChange import emailChangeRouter
+from app.routers.protected.profile import profileRouter
 from fastapi import APIRouter, Depends, UploadFile, File, Form
 from sqlalchemy.orm import Session
 
@@ -17,9 +19,11 @@ protectedRouter = APIRouter()
 protectedRouter.include_router(router=eventRouter, tags=["event"], prefix="/event")
 protectedRouter.include_router(router=sessionRouter, tags=["session"], prefix="/session")
 protectedRouter.include_router(router=modelRouter, tags=["model"], prefix="/model")
-protectedRouter.include_router(router =userSettingRouter, tags = ['userSetting'], prefix = "/settings")
+protectedRouter.include_router(router=userSettingRouter, tags=["userSetting"], prefix="/settings")
 protectedRouter.include_router(router=avatarRouter, tags=["avatar"], prefix="/avatar")
 protectedRouter.include_router(router=achievementsRouter, tags=["achievements"], prefix="/achievements")
+protectedRouter.include_router(router=emailChangeRouter, tags=["emailChange"], prefix="/email-change")
+protectedRouter.include_router(router=profileRouter, tags=["profile"], prefix="/profile")
 
 
 @protectedRouter.get("/testToken")
@@ -34,7 +38,7 @@ async def upload_picture(
     session: Session = Depends(get_db),
     response_model=UserOutput
 ):
-    embedding = await upload_img_to_embedding(upload_image,multiple=False)
+    embedding = await upload_img_to_embedding(upload_image, multiple=False)
     # upload_img_to_embedding return a list of embeddings hence must squeeze() dimension 0
     embedding = [float(x) for x in embedding.squeeze(0)]
 

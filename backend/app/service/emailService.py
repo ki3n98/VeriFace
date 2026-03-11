@@ -71,6 +71,59 @@ class EmailService:
         msg.attach(MIMEText(html_body, "html"))
         return msg
 
+    def send_email_change_verification(self, to_email: str, first_name: str, token: str) -> None:
+        """
+        Send a verification email to the new address.
+        The user must click the link to confirm the email change.
+        """
+        verify_url = f"{self.frontend_url}/verify-email-change?token={token}"
+        safe_first = escape(first_name)
+        safe_url = escape(verify_url)
+        subject = "VeriFace: Confirm your new email address"
+
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background-color: #6B46C1; color: white; padding: 20px; text-align: center;">
+                <h1 style="margin: 0;">VeriFace</h1>
+            </div>
+            <div style="padding: 20px;">
+                <p>Hi {safe_first},</p>
+                <p>You requested to change your email address on VeriFace. Click the button below to confirm:</p>
+                <p style="text-align: center; margin: 30px 0;">
+                    <a href="{safe_url}"
+                       style="background-color: #6B46C1; color: white; padding: 12px 30px;
+                              text-decoration: none; border-radius: 6px; font-weight: bold;">
+                        Confirm New Email
+                    </a>
+                </p>
+                <p style="color: #666; font-size: 12px;">
+                    This link expires in 24 hours. If you did not request this change, you can safely ignore this email.
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+
+        plain_body = (
+            f"Hi {first_name},\n\n"
+            f"Confirm your new email address by visiting:\n{verify_url}\n\n"
+            f"This link expires in 24 hours.\n"
+            f"If you did not request this change, ignore this email.\n"
+        )
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = self.smtp_email
+        msg["To"] = to_email
+        msg.attach(MIMEText(plain_body, "plain"))
+        msg.attach(MIMEText(html_body, "html"))
+
+        with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+            server.starttls()
+            server.login(self.smtp_email, self.smtp_password)
+            server.sendmail(self.smtp_email, to_email, msg.as_string())
+
     def send_bulk_invites(self, recipients: list, event_name: str) -> dict:
         """
         Send invite emails to multiple recipients using a single SMTP connection.

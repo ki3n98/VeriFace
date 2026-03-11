@@ -51,6 +51,11 @@ async def upload_avatar(
         raise HTTPException(status_code=400, detail="Image contains inappropriate content and cannot be uploaded")
 
     supabase = get_supabase_client()
+
+    # Delete the old avatar from storage before uploading the new one
+    if user.avatar_url:
+        supabase.storage.from_(SUPABASE_BUCKET).remove([user.avatar_url])
+
     supabase.storage.from_(SUPABASE_BUCKET).upload(
         path, file_bytes, {"content-type": file.content_type, "upsert": "true"}
     )
