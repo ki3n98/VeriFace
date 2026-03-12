@@ -25,25 +25,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Fetch theme from backend when user is logged in
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      fetchUserSettings();
-    }
-  }, []);
-
-  const fetchUserSettings = async () => {
-    try {
-      const response = await apiClient.getUserSettings();
-      if (response.data) {
-        setTheme(response.data.display_theme as Theme);
-      }
-    } catch (error) {
-      console.error('Failed to fetch user settings:', error);
-    }
-  };
-
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem('theme', newTheme);
