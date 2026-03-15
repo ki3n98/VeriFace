@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { PanelLeft } from "lucide-react";
+import { PanelLeft, Home, Calendar, Users, Cog, LogOut } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { useEvents } from "@/lib/hooks/useEvents";
 import { ColdCallWheel } from "./components/ColdCallWheel";
@@ -162,54 +162,34 @@ export default function ParticipationPage() {
         </Link>
 
         <nav className="flex-1 space-y-2">
-          <Link
-            href={eventId ? `/dashboard?eventId=${eventId}` : "/dashboard"}
-            className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
-              pathname === "/dashboard"
-                ? "bg-[var(--sidebar-accent)] font-medium"
-                : "hover:bg-[var(--sidebar-accent)]/50"
-            }`}
-          >
-            {isSidebarCollapsed ? "H" : "Home"}
-          </Link>
-          <Link
-            href="/events"
-            className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
-              pathname === "/events"
-                ? "bg-[var(--sidebar-accent)] font-medium"
-                : "hover:bg-[var(--sidebar-accent)]/50"
-            }`}
-          >
-            {isSidebarCollapsed ? "E" : "Events"}
-          </Link>
-          <Link
-            href={eventId ? `/participation?eventId=${eventId}` : "/participation"}
-            className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
-              pathname?.startsWith("/participation")
-                ? "bg-[var(--sidebar-accent)] font-medium"
-                : "hover:bg-[var(--sidebar-accent)]/50"
-            }`}
-          >
-            {isSidebarCollapsed ? "P" : "Participation"}
-          </Link>
-          <Link
-            href="/settings"
-            className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
-              pathname === "/settings"
-                ? "bg-[var(--sidebar-accent)] font-medium"
-                : "hover:bg-[var(--sidebar-accent)]/50"
-            }`}
-          >
-            {isSidebarCollapsed ? "S" : "Settings"}
-          </Link>
+          {[
+            { href: eventId ? `/dashboard?eventId=${eventId}` : "/dashboard", label: "Home", icon: Home, match: (p: string) => p === "/dashboard" },
+            { href: "/events", label: "Events", icon: Calendar, match: (p: string) => p === "/events" },
+            { href: eventId ? `/participation?eventId=${eventId}` : "/participation", label: "Participation", icon: Users, match: (p: string) => p.startsWith("/participation") },
+            { href: "/settings", label: "Settings", icon: Cog, match: (p: string) => p.startsWith("/settings") },
+          ].map(({ href, label, icon: Icon, match }) => (
+            <Link
+              key={label}
+              href={href}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                match(pathname ?? "")
+                  ? "bg-[var(--sidebar-accent)] font-medium"
+                  : "hover:bg-[var(--sidebar-accent)]/50"
+              }`}
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+              {!isSidebarCollapsed && <span>{label}</span>}
+            </Link>
+          ))}
         </nav>
 
         <div className="pt-4 border-t border-[var(--sidebar-border)]/30">
           <button
             onClick={handleLogout}
-            className="w-full text-left px-4 py-2 rounded-lg text-sm font-medium opacity-90 hover:bg-red-500/20 hover:text-red-400 transition"
+            className="flex items-center gap-3 w-full px-4 py-2 rounded-lg text-sm font-medium opacity-90 hover:bg-red-500/20 hover:text-red-400 transition"
           >
-            Logout
+            <LogOut className="h-5 w-5 shrink-0" />
+            {!isSidebarCollapsed && "Logout"}
           </button>
           {user && (
             <div className="flex items-center gap-3 mt-4">

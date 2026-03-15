@@ -2,7 +2,7 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { PanelLeft, User, Shield, Trophy, type LucideIcon } from "lucide-react";
+import { PanelLeft, User, Shield, Trophy, Home, Calendar, Users, Cog, LogOut, type LucideIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -86,54 +86,34 @@ export default function SettingsLayout({
         </Link>
 
         <nav className="flex-1 space-y-2">
-          <Link
-            href="/dashboard"
-            className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
-              pathname === "/dashboard"
-                ? "bg-[var(--sidebar-accent)] font-medium"
-                : "hover:bg-[var(--sidebar-accent)]/50"
-            }`}
-          >
-            {isSidebarCollapsed ? "H" : "Home"}
-          </Link>
-          <Link
-            href="/events"
-            className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
-              pathname === "/events"
-                ? "bg-[var(--sidebar-accent)] font-medium"
-                : "hover:bg-[var(--sidebar-accent)]/50"
-            }`}
-          >
-            {isSidebarCollapsed ? "E" : "Events"}
-          </Link>
-          <Link
-            href="/participation"
-            className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
-              pathname?.startsWith("/participation")
-                ? "bg-[var(--sidebar-accent)] font-medium"
-                : "hover:bg-[var(--sidebar-accent)]/50"
-            }`}
-          >
-            {isSidebarCollapsed ? "P" : "Participation"}
-          </Link>
-          <Link
-            href="/settings"
-            className={`w-full block text-left px-4 py-3 rounded-lg transition-colors ${
-              pathname.startsWith("/settings")
-                ? "bg-[var(--sidebar-accent)] font-medium"
-                : "hover:bg-[var(--sidebar-accent)]/50"
-            }`}
-          >
-            {isSidebarCollapsed ? "S" : "Settings"}
-          </Link>
+          {[
+            { href: "/dashboard", label: "Home", icon: Home, match: (p: string) => p === "/dashboard" },
+            { href: "/events", label: "Events", icon: Calendar, match: (p: string) => p === "/events" },
+            { href: "/participation", label: "Participation", icon: Users, match: (p: string) => p.startsWith("/participation") },
+            { href: "/settings", label: "Settings", icon: Cog, match: (p: string) => p.startsWith("/settings") },
+          ].map(({ href, label, icon: Icon, match }) => (
+            <Link
+              key={href}
+              href={href}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                match(pathname)
+                  ? "bg-[var(--sidebar-accent)] font-medium"
+                  : "hover:bg-[var(--sidebar-accent)]/50"
+              }`}
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+              {!isSidebarCollapsed && <span>{label}</span>}
+            </Link>
+          ))}
         </nav>
 
         {/* Logout */}
         <div className="pt-4 border-t border-[var(--sidebar-border)]/30">
           <button
             onClick={handleLogout}
-            className="w-full text-left px-4 py-2 rounded-lg text-sm font-medium opacity-90 hover:bg-red-500/20 hover:text-red-400 transition"
+            className="flex items-center gap-3 w-full px-4 py-2 rounded-lg text-sm font-medium opacity-90 hover:bg-red-500/20 hover:text-red-400 transition"
           >
+            <LogOut className="h-5 w-5 shrink-0" />
             {!isSidebarCollapsed && "Logout"}
           </button>
         </div>

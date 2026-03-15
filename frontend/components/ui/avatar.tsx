@@ -39,7 +39,7 @@ const AvatarImage = React.forwardRef<
   return (
     <img
       ref={ref}
-      className={cn("aspect-square h-full w-full", className)}
+      className={cn("aspect-square h-full w-full object-cover", className)}
       onLoad={(e) => {
         setImageLoaded(true)
         onLoad?.(e)
@@ -64,7 +64,7 @@ const AvatarFallback = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        "flex h-full w-full items-center justify-center rounded-full bg-muted",
+        "absolute inset-0 flex items-center justify-center rounded-full bg-muted",
         className
       )}
       {...props}

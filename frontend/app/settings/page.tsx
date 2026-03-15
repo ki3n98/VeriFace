@@ -31,7 +31,7 @@ export default function UserSettingsPage() {
   const [avatarSignedUrl, setAvatarSignedUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+ 
   // Crop state
   const [cropModalOpen, setCropModalOpen] = useState(false);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
