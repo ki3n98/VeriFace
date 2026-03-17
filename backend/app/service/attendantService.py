@@ -101,7 +101,7 @@ class AttendanceService:
         # 2) For each attendance row, get the user and compare embeddings
         for att in attendances:
             user = self.session.get(User, att.user_id)
-            if not user or not user.embedding or att.status == 'present':
+            if not user or not user.embedding:
                 continue
 
             user_emb = np.asarray(user.embedding, dtype=float)
@@ -114,14 +114,30 @@ class AttendanceService:
         # No users had embeddings or similarity too low
         if best_user is None:
             raise HTTPException(
-                status_code=422,
-                detail="No users to checkin. This could be due to no embedding or all users already checked-in.",
+                status_code=420,
+                detail="Could not find the user to checkin, please try again.",
+            )
+        
+        else:
+            best_user_id = best_user.id
+            attendance = (
+            self.session
+            .query(Attendance)
+            .filter(Attendance.session_id == session_id,
+                    Attendance.user_id == best_user_id)
+            .first()
+            )
+
+        if attendance.status == "present":
+            raise HTTPException(
+                status_code=421,
+                detail="User already checked in.",
             )
 
         if best_sim < threshold:
             raise HTTPException(
-                status_code=421,
-                detail="Face not recognized (similarity below threshold)",
+                status_code=422,
+                detail="This student is not recognized please try again.",
             )
 
         # 3) Mark this user as PRESENT for this session

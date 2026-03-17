@@ -171,6 +171,12 @@ export default function Dashboard() {
   const eventId = searchParams?.get("eventId")
     ? parseInt(searchParams.get("eventId")!)
     : null;
+
+  useEffect(() => {
+    if (eventId) {
+      localStorage.setItem("lastEventId", String(eventId));
+    }
+  }, [eventId]);
   const userRole = searchParams?.get("role") as "owner" | "admin" | null;
 
   // Live check-in via WebSocket

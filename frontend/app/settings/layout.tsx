@@ -1,6 +1,5 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PanelLeft, User, Shield, Trophy, Home, Calendar, Users, Cog, LogOut, type LucideIcon } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -8,13 +7,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api";
 
-interface UserData {
-  id: number;
-  first_name: string;
-  last_name: string;
-  email: string;
-  avatar_url: string | null;
-}
 
 const tabs: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/settings", label: "User Settings", icon: User },
@@ -30,28 +22,22 @@ export default function SettingsLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [user, setUser] = useState<UserData | null>(null);
-  const [avatarSignedUrl, setAvatarSignedUrl] = useState<string | null>(null);
+  const [lastEventId, setLastEventId] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchUser() {
+    setLastEventId(localStorage.getItem("lastEventId"));
+  }, []);
+
+  useEffect(() => {
+    async function checkAuth() {
       try {
         const response = await apiClient.getCurrentUser();
-        const userData = response.data?.data;
-        if (userData) {
-          setUser(userData);
-          if (userData.avatar_url) {
-            const urlRes = await apiClient.getAvatarUrl();
-            setAvatarSignedUrl(urlRes.data?.signed_url ?? null);
-          }
-        } else {
-          router.push("/sign-in");
-        }
+        if (!response.data?.data) router.push("/sign-in");
       } catch {
         router.push("/sign-in");
       }
     }
-    fetchUser();
+    checkAuth();
   }, [router]);
 
   const handleLogout = () => {
@@ -87,7 +73,7 @@ export default function SettingsLayout({
 
         <nav className="flex-1 space-y-2">
           {[
-            { href: "/dashboard", label: "Home", icon: Home, match: (p: string) => p === "/dashboard" },
+            { href: lastEventId ? `/dashboard?eventId=${lastEventId}` : "/dashboard", label: "Home", icon: Home, match: (p: string) => p === "/dashboard" },
             { href: "/events", label: "Events", icon: Calendar, match: (p: string) => p === "/events" },
             { href: "/participation", label: "Participation", icon: Users, match: (p: string) => p.startsWith("/participation") },
             { href: "/settings", label: "Settings", icon: Cog, match: (p: string) => p.startsWith("/settings") },
