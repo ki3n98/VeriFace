@@ -8,7 +8,7 @@ Traditional approaches — manual roll calls, paper sign-ins, and ticketing syst
 
 Beyond entry management, VeriFace provides administrators with powerful attendance analytics — enabling them to track participation trends, measure engagement, and generate reports instantly. Its modular design makes it easy to integrate with existing infrastructure, whether in educational, corporate, or event management systems.
 
-Attendees check in via facial recognition or QR code; organizers track attendance in real time through the dashboard.
+Attendees check in via facial recognition through their browser webcam; organizers track attendance in real time through the dashboard.
 
 ---
 
@@ -93,14 +93,19 @@ Hover over an event card and click the **delete (trash) icon** that appears. A c
 
 A *session* is a single meeting or class period within an event.
 
-### Creating a session / generating a QR code
+### Method 1 — QR code (kiosk)
 
 1. Open the event dashboard.
 2. Click **Generate QR Code**. A new session is created and a QR code modal appears.
-3. Display the QR code on a projector or screen.
-4. Attendees scan the QR code with their phone camera to check in via facial recognition.
+3. Display or share the QR code with the kiosk operator. The kiosk scans the QR code to connect to the correct session and begins accepting check-ins.
 
 > An active session's QR code can be reopened with the **View QR** button.
+
+### Method 2 — Browser webcam
+
+1. Open the event dashboard and create a session (or use an existing one).
+2. Click **Start Checking In**. A browser-based webcam check-in page opens, linked to the current session.
+3. Attendees approach the device, look at the webcam, and the system matches their face against stored embeddings to mark them present automatically.
 
 ### Manual check-in
 
@@ -220,8 +225,11 @@ Earned badges appear in full color; locked badges are greyed out with a lock ico
 **My photo upload fails with "No face detected".**
 Make sure only one face is clearly visible, well-lit, and facing the camera directly. Avoid sunglasses, hats, or heavy shadows.
 
-**The QR code scan doesn't check me in.**
-Ensure your face photo has been set up (step 3). The scan uses your stored facial embedding for verification.
+**The kiosk isn't checking attendees in.**
+Ensure the kiosk has scanned the session QR code to connect to the correct session. Verify that attendees have completed face photo setup (step 3), as check-in matches against stored facial embeddings.
+
+**The browser webcam check-in isn't working.**
+Make sure you clicked **Start Checking In** from an active session on the dashboard. Grant the browser permission to access the webcam when prompted. Attendees must have completed face photo setup (step 3).
 
 **I'm not seeing real-time check-ins on the dashboard.**
 Check your network connection. The live feed requires a WebSocket connection to the backend. Refreshing the page will re-establish it.
