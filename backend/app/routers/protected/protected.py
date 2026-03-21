@@ -15,6 +15,8 @@ from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 import numpy as np
+import cv2
+from app.service.OcclusionService import occlusion_service
 
 
 protectedRouter = APIRouter()
@@ -67,6 +69,19 @@ async def upload_picture_multi(
     embeddings = []
     for img in upload_images:
         try:
+            raw = await img.read()
+            arr = np.frombuffer(raw, np.uint8)
+            bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+
+            # Occlusion check
+            if occlusion_service.enabled and bgr is not None:
+                occluded, conf = occlusion_service.is_occluded(bgr)
+                if occluded:
+                    print(f"Skipping frame — occlusion detected (conf={conf:.2f})")
+                    continue
+
+            # Seek back so upload_img_to_embedding can read the same bytes
+            await img.seek(0)
             emb = await upload_img_to_embedding(img, multiple=False)
             embeddings.append(emb.squeeze(0).cpu().numpy())
         except Exception as e:
@@ -93,6 +108,26 @@ async def upload_picture_multi(
     except Exception as error:
         print(error)
         raise error
+
+
+@protectedRouter.post("/check-occlusion")
+async def check_occlusion(
+    upload_image: UploadFile = File(...),
+    user: UserOutput = Depends(get_current_user),
+):
+    raw = await upload_image.read()
+    arr = np.frombuffer(raw, np.uint8)
+    bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+
+    if bgr is None:
+        raise HTTPException(status_code=400, detail="Could not decode image")
+
+    if not occlusion_service.enabled:
+        return {"occluded": False, "confidence": 0.0, "enabled": False}
+
+    occluded, conf = occlusion_service.is_occluded(bgr)
+
+    return {"occluded": occluded, "confidence": round(conf, 3), "enabled": True}
 
 
 @protectedRouter.post("/uploadPictureGodmode")

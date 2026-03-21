@@ -338,6 +338,15 @@ class ApiClient {
     });
   }
 
+  async checkOcclusion(file: File) {
+    const formData = new FormData();
+    formData.append("upload_image", file);
+    return this.post<{ occluded: boolean; confidence: number; enabled: boolean }>(
+      "/protected/check-occlusion",
+      formData
+    );
+  }
+
   async uploadPictureMulti(files: File[]) {
     const formData = new FormData();
     for (const file of files) {

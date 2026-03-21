@@ -68,9 +68,9 @@ export default function PicturePage() {
 
   const [phase, setPhase] = useState<Phase>("checking");
   const [sectorsDone, setSectorsDone] = useState<boolean[]>(new Array(SECTOR_COUNT).fill(false));
-  const [cleanProgress, setCleanProgress] = useState(0); // 0–1 for validation bar
+  const [cleanProgress, setCleanProgress] = useState(0);
   const [warning, setWarning] = useState("");
-  const warningClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastWarningTimeRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
 
   // Keep phaseRef in sync
@@ -82,13 +82,14 @@ export default function PicturePage() {
   }, []);
 
   const showWarning = useCallback((msg: string) => {
-    if (warningClearTimer.current) clearTimeout(warningClearTimer.current);
+    lastWarningTimeRef.current = Date.now();
     setWarning(msg);
   }, []);
 
   const clearWarning = useCallback(() => {
-    if (warningClearTimer.current) clearTimeout(warningClearTimer.current);
-    warningClearTimer.current = setTimeout(() => setWarning(""), 800);
+    if (Date.now() - lastWarningTimeRef.current > 1000) {
+      setWarning("");
+    }
   }, []);
 
   // ── Embedding check on mount ──────────────────────────────────────────────────
@@ -131,7 +132,7 @@ export default function PicturePage() {
     }
   }, []);
 
-  // ── Reset back to validating (mid-capture occlusion) ─────────────────────────
+  // ── Reset back to validating ──────────────────────────────────────────────────
   const resetToValidating = useCallback(() => {
     sectorsDoneRef.current = new Array(SECTOR_COUNT).fill(false);
     framesRef.current = [];
@@ -173,7 +174,31 @@ export default function PicturePage() {
     setPhaseSync("uploading");
     setError(null);
 
-    const res = await apiClient.uploadPictureMulti(framesRef.current);
+    const frames = framesRef.current;
+
+    // Check all frames for occlusion in parallel before averaging
+    const occlusionResults = await Promise.all(
+      frames.map((frame) => apiClient.checkOcclusion(frame))
+    );
+
+    const anyOccluded = occlusionResults.some((res) => {
+      const data = (res as any)?.data;
+      return data?.enabled && data?.occluded;
+    });
+
+    if (anyOccluded) {
+      framesRef.current = [];
+      uploadCalledRef.current = false;
+      sectorsDoneRef.current = new Array(SECTOR_COUNT).fill(false);
+      setSectorsDone(new Array(SECTOR_COUNT).fill(false));
+      setCleanProgress(0);
+      setWarning("");
+      setError("Occlusion detected in one or more frames. Please remove sunglasses, hats, or face coverings and try again.");
+      setPhaseSync("intro");
+      return;
+    }
+
+    const res = await apiClient.uploadPictureMulti(frames);
     if ((res as any)?.error) {
       setError(toErrorString((res as any).error));
       setPhaseSync("intro");
@@ -189,36 +214,7 @@ export default function PicturePage() {
     }
     setError("Embedding timed out. Please try again.");
     setPhaseSync("intro");
-  }, [stopCamera, router]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Occlusion check (returns warning string or "") ───────────────────────────
-  const getOcclusionWarning = useCallback((lm: any[], faceW: number, faceH: number): string => {
-    if (faceW < 90 || faceH < 90) return "Move closer to the camera";
-
-    const foreheadY  = lm[10].y;
-    const browMidY   = (lm[107].y + lm[336].y) / 2;
-    const noseY      = lm[1].y;
-    const mouthY     = (lm[13].y + lm[14].y) / 2;
-
-    // Eye corners should sit between forehead and nose in Y, and span at least 40% of face width
-    const eyeY = ((lm[33].y + lm[133].y) / 2 + (lm[263].y + lm[362].y) / 2) / 2;
-    const eyeSpan = Math.abs(lm[263].x - lm[33].x);
-    const faceXMin = Math.min(...lm.map((p: any) => p.x));
-    const faceXMax = Math.max(...lm.map((p: any) => p.x));
-    if (
-      eyeY <= foreheadY ||
-      eyeY >= noseY ||
-      eyeSpan / (faceXMax - faceXMin) < 0.5
-    ) return "Eyes not visible — remove sunglasses";
-
-    // Forehead should sit clearly above eyebrows
-    if (browMidY - foreheadY < 0.05) return "Remove hat or hood";
-
-    // Nose should sit clearly above the mouth
-    if (mouthY - noseY < 0.04) return "Keep your face uncovered";
-
-    return "";
-  }, []);
+  }, [stopCamera, router, setPhaseSync]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── MediaPipe result handler ──────────────────────────────────────────────────
   const onResults = useCallback(
@@ -238,17 +234,6 @@ export default function PicturePage() {
       ctx.scale(-1, 1);
       ctx.drawImage(video, 0, 0, CANVAS_W, CANVAS_H);
       ctx.restore();
-
-      // Sample center region for brightness BEFORE overlay darkens it
-      const sampleSize = 120;
-      const sampleX = (CANVAS_W - sampleSize) / 2;
-      const sampleY = (CANVAS_H - sampleSize) / 2;
-      const pd = ctx.getImageData(sampleX, sampleY, sampleSize, sampleSize).data;
-      let totalBrightness = 0;
-      for (let j = 0; j < pd.length; j += 4) {
-        totalBrightness += pd[j] * 0.299 + pd[j + 1] * 0.587 + pd[j + 2] * 0.114;
-      }
-      const avgBrightness = totalBrightness / (pd.length / 4);
 
       ctx.fillStyle = "rgba(0,0,0,0.18)";
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
@@ -276,68 +261,42 @@ export default function PicturePage() {
       }
 
       const faces = results.multiFaceLandmarks;
-
-      if (avgBrightness < 50) {
-        cleanFrameCountRef.current = 0;
-        setCleanProgress(0);
-        showWarning("Too dark — improve your lighting");
-        return;
-      }
-      if (avgBrightness > 230) {
-        cleanFrameCountRef.current = 0;
-        setCleanProgress(0);
-        showWarning("Too bright — avoid direct light sources");
-        return;
-      }
-
-      if (!faces || faces.length === 0) {
-        cleanFrameCountRef.current = 0;
-        setCleanProgress(0);
-        showWarning("No face detected — move closer");
-        return;
-      }
-      if (faces.length > 1) {
-        cleanFrameCountRef.current = 0;
-        setCleanProgress(0);
-        showWarning("Multiple faces detected — only one person at a time");
-        return;
-      }
+      if (!faces || faces.length === 0) return;
 
       const lm = faces[0];
-      const xs = lm.map((p: any) => p.x);
-      const ys = lm.map((p: any) => p.y);
-      const faceW = (Math.max(...xs) - Math.min(...xs)) * CANVAS_W;
-      const faceH = (Math.max(...ys) - Math.min(...ys)) * CANVAS_H;
-
-      const occlusionMsg = getOcclusionWarning(lm, faceW, faceH);
-
-      if (occlusionMsg) {
-        cleanFrameCountRef.current = 0;
-        setCleanProgress(0);
-        showWarning(occlusionMsg);
-        // Mid-capture occlusion → reset and re-validate
-        if (currentPhase === "capture" && sectorsDoneRef.current.some(Boolean)) {
-          resetToValidating();
-        }
-        return;
-      }
-
-      clearWarning();
-
-      // Nose dot
       const noseX = (1 - lm[1].x) * CANVAS_W;
       const noseY = lm[1].y * CANVAS_H;
-      ctx.beginPath();
-      ctx.arc(noseX, noseY, 7, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(139,92,246,0.9)";
-      ctx.fill();
+      const fdx = noseX - cx;
+      const fdy = noseY - cy;
+      const dist = Math.sqrt(fdx * fdx + fdy * fdy);
 
       if (currentPhase === "validating") {
-        // Count clean frames; auto-advance to capture when ready
-        cleanFrameCountRef.current = Math.min(
-          cleanFrameCountRef.current + 1,
-          CLEAN_FRAMES_NEEDED
-        );
+        // Center target circle
+        ctx.beginPath();
+        ctx.arc(cx, cy, RING_RADIUS * 0.35, 0, Math.PI * 2);
+        ctx.strokeStyle = dist < RING_RADIUS * 0.35
+          ? "rgba(34,197,94,0.7)"
+          : "rgba(255,255,255,0.4)";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Nose dot
+        ctx.beginPath();
+        ctx.arc(noseX, noseY, 7, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(139,92,246,0.9)";
+        ctx.fill();
+
+        if (dist > RING_RADIUS * 0.35) {
+          cleanFrameCountRef.current = 0;
+          setCleanProgress(0);
+          showWarning("Center your face in the circle");
+          return;
+        }
+
+        clearWarning();
+        cleanFrameCountRef.current = Math.min(cleanFrameCountRef.current + 1, CLEAN_FRAMES_NEEDED);
         setCleanProgress(cleanFrameCountRef.current / CLEAN_FRAMES_NEEDED);
         if (cleanFrameCountRef.current >= CLEAN_FRAMES_NEEDED) {
           setPhaseSync("capture");
@@ -345,10 +304,18 @@ export default function PicturePage() {
         return;
       }
 
-      // capture phase — track nose on ring
-      const fdx = noseX - cx;
-      const fdy = noseY - cy;
-      const dist = Math.sqrt(fdx * fdx + fdy * fdy);
+      // Capture phase — nose dot
+      ctx.beginPath();
+      ctx.arc(noseX, noseY, 7, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(139,92,246,0.9)";
+      ctx.fill();
+
+      if (dist > RING_RADIUS * 1.6) {
+        showWarning("Move back into the circle");
+        resetToValidating();
+        return;
+      }
+
       if (dist < RING_RADIUS * 0.45 || dist > RING_RADIUS * 1.45) return;
 
       const faceAngle = Math.atan2(fdy, fdx);
@@ -358,8 +325,10 @@ export default function PicturePage() {
         if (diff > Math.PI) diff = Math.PI * 2 - diff;
         if (diff < SECTOR_HALF) captureFrame(i);
       });
+
+      clearWarning();
     },
-    [captureFrame, showWarning, clearWarning, getOcclusionWarning, resetToValidating, setPhaseSync]
+    [captureFrame, showWarning, clearWarning, resetToValidating, setPhaseSync]
   );
 
   // ── Start the full flow ───────────────────────────────────────────────────────
@@ -375,7 +344,6 @@ export default function PicturePage() {
     setPhaseSync("validating");
 
     await startCamera();
-
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore — no type declarations for this package
     const { FaceMesh } = await import("@mediapipe/face_mesh");
@@ -384,7 +352,7 @@ export default function PicturePage() {
         `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/${file}`,
     });
     faceMesh.setOptions({
-      maxNumFaces: 2,
+      maxNumFaces: 1,
       refineLandmarks: false,
       minDetectionConfidence: 0.7,
       minTrackingConfidence: 0.7,

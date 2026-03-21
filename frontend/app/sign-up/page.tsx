@@ -73,7 +73,7 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className={styles.pageWrapper}>
+    <div className={styles.pageWrapper} style={{ position: "relative", minHeight: "100vh", overflowY: "auto", paddingBottom: 48 }}>
       <Link href="/" className={styles.logoLink}>
         <img src="/logo.png" className={styles.logo} alt="Logo" />
       </Link>
