@@ -11,8 +11,10 @@ from app.routers.protected.avatar import avatarRouter
 from app.routers.protected.achievements import achievementsRouter
 from app.routers.protected.emailChange import emailChangeRouter
 from app.routers.protected.profile import profileRouter
-from fastapi import APIRouter, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
+from typing import List
+import numpy as np
 
 
 protectedRouter = APIRouter()
@@ -48,6 +50,46 @@ async def upload_picture(
             updates={"embedding": embedding}
         )
 
+    except Exception as error:
+        print(error)
+        raise error
+
+
+@protectedRouter.post("/uploadPictureMulti")
+async def upload_picture_multi(
+    upload_images: List[UploadFile] = File(...),
+    user: UserOutput = Depends(get_current_user),
+    session: Session = Depends(get_db),
+):
+    if not upload_images:
+        raise HTTPException(status_code=400, detail="No images provided")
+
+    embeddings = []
+    for img in upload_images:
+        try:
+            emb = await upload_img_to_embedding(img, multiple=False)
+            embeddings.append(emb.squeeze(0).cpu().numpy())
+        except Exception as e:
+            print(f"Skipping frame (face not detected): {e}")
+            continue
+
+    if not embeddings:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not detect a face in any of the provided frames. Please try again."
+        )
+
+    avg = np.mean(embeddings, axis=0)
+    norm = np.linalg.norm(avg)
+    if norm > 0:
+        avg = avg / norm
+    embedding = [float(x) for x in avg]
+
+    try:
+        return UserService(session=session).update_user_by_id(
+            user_id=user.id,
+            updates={"embedding": embedding}
+        )
     except Exception as error:
         print(error)
         raise error

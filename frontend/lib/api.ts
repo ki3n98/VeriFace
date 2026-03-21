@@ -338,6 +338,14 @@ class ApiClient {
     });
   }
 
+  async uploadPictureMulti(files: File[]) {
+    const formData = new FormData();
+    for (const file of files) {
+      formData.append("upload_images", file);
+    }
+    return this.post<any>("/protected/uploadPictureMulti", formData);
+  }
+
   async checkIn(sessionId: number, imageFile: File) {
     const formData = new FormData();
     formData.append("upload_image", imageFile);

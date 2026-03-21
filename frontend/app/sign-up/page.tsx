@@ -6,6 +6,16 @@ import { apiClient } from "@/lib/api";
 import styles from "../sign-in/sign-in.module.css";
 import Link from "next/link";
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const PASSWORD_RULES = [
+  { label: "At least 8 characters",       test: (p: string) => p.length >= 8 },
+  { label: "One uppercase letter",         test: (p: string) => /[A-Z]/.test(p) },
+  { label: "One lowercase letter",         test: (p: string) => /[a-z]/.test(p) },
+  { label: "One number",                   test: (p: string) => /[0-9]/.test(p) },
+  { label: "One special character",        test: (p: string) => /[^A-Za-z0-9]/.test(p) },
+];
+
 export default function SignUpPage() {
   const router = useRouter();
 
@@ -13,24 +23,38 @@ export default function SignUpPage() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordFocused, setPasswordFocused] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const passwordResults = PASSWORD_RULES.map((r) => r.test(password));
+  const passwordValid = passwordResults.every(Boolean);
+  const emailValid = EMAIL_RE.test(email);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(false);
-    setIsSubmitting(true);
 
+    if (!emailValid) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (!passwordValid) {
+      setError("Password does not meet all requirements.");
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       const response = await apiClient.signup({
         first_name: firstName,
         last_name: lastName,
         email,
         password,
-        embedding: [], // placeholder, generated later
+        embedding: [],
       });
 
       if (response?.error) {
@@ -38,13 +62,8 @@ export default function SignUpPage() {
         return;
       }
 
-      // ✅ Signup succeeded
       setSuccess(true);
-
-      // Small delay so the user sees success feedback
-      setTimeout(() => {
-        router.push("/sign-in");
-      }, 1200);
+      setTimeout(() => router.push("/sign-in"), 1200);
     } catch (err) {
       console.error(err);
       setError("Something went wrong. Please try again.");
@@ -63,10 +82,9 @@ export default function SignUpPage() {
         <h1 className={styles.title}>Sign Up</h1>
 
         {error && <p className={styles.error}>{error}</p>}
-
         {success && (
           <p style={{ color: "#2e7d32", marginBottom: 12 }}>
-            Account created successfully! Redirecting to sign in…
+            Account created! Redirecting…
           </p>
         )}
 
@@ -105,6 +123,11 @@ export default function SignUpPage() {
               required
               disabled={isSubmitting}
             />
+            {email && !emailValid && (
+              <span style={{ fontSize: 12, color: "#c0392b", marginTop: 4, display: "block" }}>
+                Enter a valid email address
+              </span>
+            )}
           </label>
 
           <label className={styles.label}>
@@ -114,10 +137,32 @@ export default function SignUpPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onFocus={() => setPasswordFocused(true)}
               required
               disabled={isSubmitting}
             />
           </label>
+
+          {/* Password requirements — shown once user starts typing */}
+          {(passwordFocused || password.length > 0) && (
+            <ul style={{ listStyle: "none", padding: 0, margin: "-4px 0 8px", fontSize: 12 }}>
+              {PASSWORD_RULES.map((rule, i) => (
+                <li
+                  key={rule.label}
+                  style={{
+                    color: passwordResults[i] ? "#2e7d32" : "#888",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    marginBottom: 2,
+                  }}
+                >
+                  <span>{passwordResults[i] ? "✓" : "○"}</span>
+                  {rule.label}
+                </li>
+              ))}
+            </ul>
+          )}
 
           <button
             className={styles.button}
