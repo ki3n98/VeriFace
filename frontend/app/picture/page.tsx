@@ -63,6 +63,8 @@ export default function PicturePage() {
   const sectorsDoneRef = useRef<boolean[]>(new Array(SECTOR_COUNT).fill(false));
   const framesRef = useRef<File[]>([]);
   const uploadCalledRef = useRef(false);
+  const pendingChecksRef = useRef(0);
+  const captureSessionRef = useRef(0);
   const cleanFrameCountRef = useRef(0);
   const phaseRef = useRef<Phase>("checking");
 
@@ -70,6 +72,7 @@ export default function PicturePage() {
   const [sectorsDone, setSectorsDone] = useState<boolean[]>(new Array(SECTOR_COUNT).fill(false));
   const [cleanProgress, setCleanProgress] = useState(0);
   const [warning, setWarning] = useState("");
+  const [occlusionError, setOcclusionError] = useState<string | null>(null);
   const lastWarningTimeRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -134,6 +137,8 @@ export default function PicturePage() {
 
   // ── Reset back to validating ──────────────────────────────────────────────────
   const resetToValidating = useCallback(() => {
+    captureSessionRef.current += 1;
+    pendingChecksRef.current = 0;
     sectorsDoneRef.current = new Array(SECTOR_COUNT).fill(false);
     framesRef.current = [];
     uploadCalledRef.current = false;
@@ -158,10 +163,46 @@ export default function PicturePage() {
     const ctx = tmp.getContext("2d")!;
     ctx.drawImage(video, 0, 0, CANVAS_W, CANVAS_H);
 
-    tmp.toBlob((blob) => {
-      if (!blob) return;
-      framesRef.current.push(new File([blob], `frame_${i}.jpg`, { type: "image/jpeg" }));
-      if (framesRef.current.length >= SECTOR_COUNT && !uploadCalledRef.current) {
+    // Snapshot the session so stale callbacks from before a reset are discarded
+    const session = captureSessionRef.current;
+    pendingChecksRef.current += 1;
+
+    tmp.toBlob(async (blob) => {
+      if (!blob || session !== captureSessionRef.current) {
+        pendingChecksRef.current -= 1;
+        return;
+      }
+
+      const file = new File([blob], `frame_${i}.jpg`, { type: "image/jpeg" });
+
+      // Check occlusion on this frame before accepting it
+      try {
+        const result = await apiClient.checkOcclusion(file);
+        if (session !== captureSessionRef.current) { pendingChecksRef.current -= 1; return; }
+        const data = (result as any)?.data;
+        if (data?.enabled && data?.occluded) {
+          pendingChecksRef.current -= 1;
+          sectorsDoneRef.current = sectorsDoneRef.current.map((v, idx) => idx === i ? false : v);
+          setSectorsDone([...sectorsDoneRef.current]);
+          setOcclusionError("Obstruction detected — please remove face coverings and recenter");
+          resetToValidating();
+          return;
+        }
+      } catch {
+        if (session !== captureSessionRef.current) { pendingChecksRef.current -= 1; return; }
+        // If occlusion check fails, proceed anyway
+      }
+
+      setOcclusionError(null);
+      framesRef.current.push(file);
+      pendingChecksRef.current -= 1;
+
+      // Only upload once ALL frames are collected AND every occlusion check has settled
+      if (
+        framesRef.current.length >= SECTOR_COUNT &&
+        pendingChecksRef.current === 0 &&
+        !uploadCalledRef.current
+      ) {
         uploadCalledRef.current = true;
         doUpload();
       }
@@ -170,33 +211,26 @@ export default function PicturePage() {
 
   // ── Upload all frames ─────────────────────────────────────────────────────────
   const doUpload = useCallback(async () => {
-    stopCamera();
     setPhaseSync("uploading");
     setError(null);
 
     const frames = framesRef.current;
 
-    // Check all frames for occlusion in parallel before averaging
+    // Final batch occlusion check on all 8 frames before uploading
     const occlusionResults = await Promise.all(
       frames.map((frame) => apiClient.checkOcclusion(frame))
     );
-
     const anyOccluded = occlusionResults.some((res) => {
       const data = (res as any)?.data;
       return data?.enabled && data?.occluded;
     });
-
     if (anyOccluded) {
-      framesRef.current = [];
-      uploadCalledRef.current = false;
-      sectorsDoneRef.current = new Array(SECTOR_COUNT).fill(false);
-      setSectorsDone(new Array(SECTOR_COUNT).fill(false));
-      setCleanProgress(0);
-      setWarning("");
-      setError("Occlusion detected in one or more frames. Please remove sunglasses, hats, or face coverings and try again.");
-      setPhaseSync("intro");
+      setOcclusionError("Obstruction detected in final check — please remove face coverings and try again");
+      resetToValidating();
       return;
     }
+
+    stopCamera();
 
     const res = await apiClient.uploadPictureMulti(frames);
     if ((res as any)?.error) {
@@ -333,6 +367,8 @@ export default function PicturePage() {
 
   // ── Start the full flow ───────────────────────────────────────────────────────
   const startCapture = useCallback(async () => {
+    captureSessionRef.current += 1;
+    pendingChecksRef.current = 0;
     sectorsDoneRef.current = new Array(SECTOR_COUNT).fill(false);
     framesRef.current = [];
     uploadCalledRef.current = false;
@@ -341,6 +377,7 @@ export default function PicturePage() {
     setCleanProgress(0);
     setWarning("");
     setError(null);
+    setOcclusionError(null);
     setPhaseSync("validating");
 
     await startCamera();
@@ -477,6 +514,19 @@ export default function PicturePage() {
             }}
           >
             ⚠ {warning}
+          </div>
+        )}
+
+        {/* Occlusion error banner */}
+        {occlusionError && (
+          <div
+            style={{
+              background: "#fdecea", border: "1px solid #f5c6cb",
+              borderRadius: 8, padding: "8px 12px", marginBottom: 12,
+              fontSize: 13, color: "#d93025",
+            }}
+          >
+            ✕ {occlusionError}
           </div>
         )}
 

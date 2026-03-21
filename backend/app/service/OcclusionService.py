@@ -56,7 +56,7 @@ class OcclusionService:
     def is_occluded(
         self,
         img_bgr: np.ndarray,
-        threshold: float = 0.7,
+        threshold: float = 0.8,
     ) -> tuple[bool, float]:
         """
         img_bgr  : full-frame BGR numpy array (from cv2.imdecode)
@@ -75,9 +75,12 @@ class OcclusionService:
         with torch.no_grad():
             out   = self.model(tensor)
             probs = torch.softmax(out, dim=1)
+            clear_prob    = probs[0, 0].item()
             occluded_prob = probs[0, 1].item()
 
-        return occluded_prob >= threshold, occluded_prob
+        # Reject unless the model is confidently clear — uncertainty counts as occluded
+        is_occ = clear_prob < threshold
+        return is_occ, occluded_prob
 
 
 # Singleton — loaded once at startup
