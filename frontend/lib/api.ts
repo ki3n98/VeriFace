@@ -265,18 +265,35 @@ class ApiClient {
   }
 
   // Sessions
-  async createSession(eventId: number) {
+  async createSession(eventId: number, startTime?: string) {
+    const body: { event_id: number; start_time?: string } = { event_id: eventId };
+    if (startTime) body.start_time = startTime;
     return this.post<{
       success: boolean;
-      session: { id: number; event_id: number; sequence_number: number };
-    }>("/protected/session/createSession", { event_id: eventId });
+      session: { id: number; event_id: number; sequence_number: number; start_time?: string };
+    }>("/protected/session/createSession", body);
   }
 
   async getSessions(eventId: number) {
     return this.post<{
       success: boolean;
-      sessions: Array<{ id: number; event_id: number; sequence_number: number }>;
+      sessions: Array<{
+        id: number;
+        event_id: number;
+        sequence_number: number;
+        start_time?: string | null;
+      }>;
     }>("/protected/session/getSessions", { event_id: eventId });
+  }
+
+  async updateSessionStartTime(sessionId: number, startTime: string | null) {
+    return this.post<{
+      success: boolean;
+      session: { id: number; event_id: number; sequence_number: number; start_time?: string | null };
+    }>("/protected/session/updateSessionStartTime", {
+      session_id: sessionId,
+      start_time: startTime || null,
+    });
   }
 
   async getSessionAttendance(sessionId: number) {

@@ -1,4 +1,6 @@
 from pydantic import BaseModel
+from datetime import datetime
+from typing import Optional
 
 from app.db.schema.user import UserOutput
 from app.db.schema.session import SessionInCreate, SessionOutput
@@ -21,6 +23,11 @@ class SessionIdRequest(BaseModel):
 
 class EventIdRequest(BaseModel):
     event_id: int
+
+
+class UpdateSessionStartTimeRequest(BaseModel):
+    session_id: int
+    start_time: Optional[datetime] = None
 
 
 sessionRouter = APIRouter()
@@ -58,6 +65,47 @@ async def create_session_attendance(
         print(error)
         raise error
 
+
+
+@sessionRouter.post("/updateSessionStartTime")
+async def update_session_start_time(
+    body: UpdateSessionStartTimeRequest,
+    user: UserOutput = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Update a session's start time. Used to determine present vs late at check-in."""
+    try:
+        session_obj = (
+            db.query(SessionModel)
+            .filter(SessionModel.id == body.session_id)
+            .one_or_none()
+        )
+        if session_obj is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Session with id={body.session_id} not found.",
+            )
+        if not check_permission(
+            user_id=user.id,
+            event_id=session_obj.event_id,
+            session=db,
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail="Current user does not have permission to modify this session.",
+            )
+        session_obj.start_time = body.start_time
+        db.commit()
+        db.refresh(session_obj)
+        return {
+            "success": True,
+            "session": SessionOutput.model_validate(session_obj, from_attributes=True),
+        }
+    except HTTPException:
+        raise
+    except Exception as error:
+        print(error)
+        raise
 
 
 @sessionRouter.post("/getSessions")

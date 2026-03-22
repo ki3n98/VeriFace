@@ -140,11 +140,13 @@ class AttendanceService:
                 detail="This student is not recognized please try again.",
             )
 
-        # 3) Mark this user as PRESENT for this session
-        #    (we can reuse repo.check_in, or update best_attendance directly)
+        session_obj = self.session.get(SessionModel, session_id)
+        session_start_time = session_obj.start_time if session_obj else None
+
         attendance = self.__repo.check_in(
             user_id=best_user.id,
             session_id=session_id,
+            session_start_time=session_start_time,
         )
 
         return {

@@ -13,6 +13,8 @@ class SessionInCreate(BaseModel):
 
 class SessionOutput(BaseModel):
     id: int
-    event_id:int
+    event_id: int
     sequence_number: int
+    start_time: Union[datetime, None] = None
+    end_time: Union[datetime, None] = None
 

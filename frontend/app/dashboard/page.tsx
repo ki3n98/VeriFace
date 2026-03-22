@@ -47,11 +47,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api";
 import { AddMemberModal } from "@/app/events/components/AddMemberModal";
 import { QRCodeModal } from "@/app/dashboard/components/QRCodeModal";
+import { CreateSessionModal } from "@/app/dashboard/components/CreateSessionModal";
+import { EditSessionStartTimeModal } from "@/app/dashboard/components/EditSessionStartTimeModal";
 import { CheckInModal } from "@/app/dashboard/components/CheckInModal";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { StatusDropdown } from "@/app/dashboard/components/StatusDropdown";
 import { useSessionWebSocket } from "@/lib/hooks/useWebSocket";
-import { X, Shield, Camera } from "lucide-react";
+import { X, Shield, Camera, Clock } from "lucide-react";
 
 interface EventMember {
   id: number;
@@ -136,11 +138,14 @@ export default function Dashboard() {
   const [isSendingInvites, setIsSendingInvites] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [isCreateSessionModalOpen, setIsCreateSessionModalOpen] = useState(false);
+  const [isEditStartTimeModalOpen, setIsEditStartTimeModalOpen] = useState(false);
+  const [isUpdatingStartTime, setIsUpdatingStartTime] = useState(false);
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [sessions, setSessions] = useState<
-    Array<{ id: number; event_id: number; sequence_number: number }>
+    Array<{ id: number; event_id: number; sequence_number: number; start_time?: string | null }>
   >([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "sessions">("overview");
@@ -431,19 +436,23 @@ export default function Dashboard() {
     }
   };
 
-  const handleGenerateQR = async () => {
+  const handleOpenCreateSession = () => {
+    setIsCreateSessionModalOpen(true);
+  };
+
+  const handleCreateSession = async (startTime: string | null) => {
     if (!eventId) return;
     setIsCreatingSession(true);
     try {
-      const response = await apiClient.createSession(eventId);
+      const response = await apiClient.createSession(eventId, startTime ?? undefined);
       if (response.error) {
         alert(`Failed to create session: ${response.error}`);
         return;
       }
       if (response.data?.session?.id) {
+        setIsCreateSessionModalOpen(false);
         setActiveSessionId(response.data.session.id);
         setIsQRModalOpen(true);
-        // Refresh sessions list
         const sessionsResponse = await apiClient.getSessions(eventId);
         if (!sessionsResponse.error && sessionsResponse.data?.sessions) {
           setSessions(sessionsResponse.data.sessions);
@@ -460,6 +469,28 @@ export default function Dashboard() {
   const handleViewQR = (sessionId: number) => {
     setActiveSessionId(sessionId);
     setIsQRModalOpen(true);
+  };
+
+  const handleUpdateSessionStartTime = async (startTime: string | null) => {
+    if (!selectedSessionId || !eventId) return;
+    setIsUpdatingStartTime(true);
+    try {
+      const response = await apiClient.updateSessionStartTime(selectedSessionId, startTime);
+      if (response.error) {
+        alert(`Failed to update: ${response.error}`);
+        return;
+      }
+      setIsEditStartTimeModalOpen(false);
+      const sessionsResponse = await apiClient.getSessions(eventId);
+      if (!sessionsResponse.error && sessionsResponse.data?.sessions) {
+        setSessions(sessionsResponse.data.sessions);
+      }
+    } catch (error) {
+      console.error("Error updating start time:", error);
+      alert("Failed to update start time.");
+    } finally {
+      setIsUpdatingStartTime(false);
+    }
   };
 
   const handleSelectTab = (tab: "overview" | "sessions") => {
@@ -830,11 +861,11 @@ export default function Dashboard() {
               <Button
                 variant="outline"
                 className="border-primary text-primary hover:bg-primary/10 bg-transparent"
-                onClick={handleGenerateQR}
+                onClick={handleOpenCreateSession}
                 disabled={isCreatingSession}
               >
                 <QrCode className="h-4 w-4 mr-2" />
-                {isCreatingSession ? "Creating..." : "Start Session"}
+                Start Session
               </Button>
               <Button
                 variant="outline"
@@ -1258,6 +1289,15 @@ export default function Dashboard() {
                   <Button
                     variant="outline"
                     size="sm"
+                    className="border-primary text-primary hover:bg-primary/10 bg-transparent"
+                    onClick={() => setIsEditStartTimeModalOpen(true)}
+                  >
+                    <Clock className="h-4 w-4 mr-2" />
+                    Set Start Time
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="border-primary text-white hover:bg-primary/10"
                     onClick={() => handleViewQR(selectedSessionId)}
                   >
@@ -1437,6 +1477,26 @@ export default function Dashboard() {
         isOpen={isQRModalOpen}
         onClose={() => setIsQRModalOpen(false)}
         sessionId={activeSessionId}
+      />
+
+      <CreateSessionModal
+        isOpen={isCreateSessionModalOpen}
+        onClose={() => setIsCreateSessionModalOpen(false)}
+        onCreate={handleCreateSession}
+        isCreating={isCreatingSession}
+      />
+
+      <EditSessionStartTimeModal
+        isOpen={isEditStartTimeModalOpen}
+        onClose={() => setIsEditStartTimeModalOpen(false)}
+        onSave={handleUpdateSessionStartTime}
+        isSaving={isUpdatingStartTime}
+        sessionNumber={
+          sessions.find((s) => s.id === selectedSessionId)?.sequence_number ?? 0
+        }
+        currentStartTime={
+          sessions.find((s) => s.id === selectedSessionId)?.start_time ?? null
+        }
       />
 
       {/* Camera Check-In Modal */}

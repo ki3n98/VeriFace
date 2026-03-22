@@ -83,15 +83,31 @@ class AttendanceRepository(BaseRepository):
 
 
 
-    def check_in(self, user_id: int, session_id: int, when: datetime | None = None) -> Attendance:
+    def check_in(
+        self,
+        user_id: int,
+        session_id: int,
+        when: datetime | None = None,
+        session_start_time: datetime | None = None,
+    ) -> Attendance:
         """
         Mark a user as checked in for a session.
-        If no Attendance exists yet, create one.
+        If session_start_time is set and when > session_start_time, status is LATE; else PRESENT.
         """
         if when is None:
             when = datetime.now(timezone.utc)
             tz_pacific = ZoneInfo("America/Los_Angeles")
             when = when.astimezone(tz_pacific)
+
+        if session_start_time is not None and session_start_time.tzinfo is None:
+            session_start_time = session_start_time.replace(tzinfo=ZoneInfo("America/Los_Angeles"))
+
+        if session_start_time is not None and when.tzinfo is None:
+            when = when.replace(tzinfo=ZoneInfo("America/Los_Angeles"))
+
+        status = AttendanceStatus.PRESENT
+        if session_start_time is not None:
+            status = AttendanceStatus.LATE if when > session_start_time else AttendanceStatus.PRESENT
 
         att = (
             self.session.query(Attendance)
@@ -107,12 +123,12 @@ class AttendanceRepository(BaseRepository):
                 user_id=user_id,
                 session_id=session_id,
                 check_in_time=when,
-                status=AttendanceStatus.PRESENT,
+                status=status,
             )
             self.session.add(att)
         else:
             att.check_in_time = when
-            att.status = AttendanceStatus.PRESENT
+            att.status = status
 
         self.session.commit()
         self.session.refresh(att)
