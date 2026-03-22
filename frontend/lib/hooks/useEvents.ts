@@ -9,6 +9,7 @@ export interface Event {
   location?: string
   user_id?: number
   role: 'owner' | 'admin'
+  default_start_time?: string | null  // "14:30:00" - applied to new sessions
 }
 
 export function useEvents() {

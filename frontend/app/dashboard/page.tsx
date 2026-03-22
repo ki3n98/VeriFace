@@ -45,10 +45,12 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api";
+import { useEvents } from "@/lib/hooks/useEvents";
 import { AddMemberModal } from "@/app/events/components/AddMemberModal";
 import { QRCodeModal } from "@/app/dashboard/components/QRCodeModal";
 import { CreateSessionModal } from "@/app/dashboard/components/CreateSessionModal";
 import { EditSessionStartTimeModal } from "@/app/dashboard/components/EditSessionStartTimeModal";
+import { DefaultStartTimeModal } from "@/app/dashboard/components/DefaultStartTimeModal";
 import { CheckInModal } from "@/app/dashboard/components/CheckInModal";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { StatusDropdown } from "@/app/dashboard/components/StatusDropdown";
@@ -140,6 +142,8 @@ export default function Dashboard() {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [isCreateSessionModalOpen, setIsCreateSessionModalOpen] = useState(false);
   const [isEditStartTimeModalOpen, setIsEditStartTimeModalOpen] = useState(false);
+  const [isDefaultStartTimeModalOpen, setIsDefaultStartTimeModalOpen] =
+    useState(false);
   const [isUpdatingStartTime, setIsUpdatingStartTime] = useState(false);
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
@@ -174,8 +178,10 @@ export default function Dashboard() {
     number | null
   >(null);
   const eventId = searchParams?.get("eventId")
-    ? parseInt(searchParams.get("eventId")!)
+    ? parseInt(searchParams.get("eventId")!, 10)
     : null;
+  const { events, refetch: refetchEvents } = useEvents();
+  const selectedEvent = events.find((e) => e.id === eventId);
 
   useEffect(() => {
     if (eventId) {
@@ -469,6 +475,18 @@ export default function Dashboard() {
   const handleViewQR = (sessionId: number) => {
     setActiveSessionId(sessionId);
     setIsQRModalOpen(true);
+  };
+
+  const handleUpdateDefaultStartTime = async (defaultStartTime: string | null) => {
+    if (!eventId) return;
+    const response = await apiClient.updateEventDefaultStartTime(
+      eventId,
+      defaultStartTime
+    );
+    if (response.error) {
+      throw new Error(response.error);
+    }
+    await refetchEvents();
   };
 
   const handleUpdateSessionStartTime = async (startTime: string | null) => {
@@ -876,6 +894,19 @@ export default function Dashboard() {
                 <Mail className="h-4 w-4 mr-2" />
                 {isSendingInvites ? "Sending..." : "Send Invite Emails"}
               </Button>
+              {(userRole === "owner" || userRole === "admin") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-primary text-primary hover:bg-primary/10 bg-transparent"
+                  onClick={() => setIsDefaultStartTimeModalOpen(true)}
+                >
+                  <Clock className="h-4 w-4 mr-2" />
+                  {selectedEvent?.default_start_time
+                    ? "Change default time"
+                    : "Set default time"}
+                </Button>
+              )}
             </>
           )}
           {!eventId && (
@@ -1263,7 +1294,7 @@ export default function Dashboard() {
           <div>
             {/* Session Selector and Actions */}
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <select
                   value={selectedSessionId ?? ""}
                   onChange={(e) => setSelectedSessionId(Number(e.target.value))}
@@ -1277,6 +1308,31 @@ export default function Dashboard() {
                       </option>
                     ))}
                 </select>
+                {selectedSessionId && (() => {
+                  const session = sessions.find(
+                    (s) => s.id === selectedSessionId
+                  );
+                  const st = session?.start_time;
+                  let display = "Not set";
+                  if (st) {
+                    try {
+                      const d = new Date(st);
+                      const h = d.getHours();
+                      const m = d.getMinutes();
+                      const period = h >= 12 ? "PM" : "AM";
+                      const hour = h % 12 || 12;
+                      display = `${hour}:${String(m).padStart(2, "0")} ${period}`;
+                    } catch {
+                      display = "Not set";
+                    }
+                  }
+                  return (
+                    <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" />
+                      Start time: {display}
+                    </span>
+                  );
+                })()}
                 {isConnected && (
                   <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
                     <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
@@ -1497,6 +1553,13 @@ export default function Dashboard() {
         currentStartTime={
           sessions.find((s) => s.id === selectedSessionId)?.start_time ?? null
         }
+      />
+
+      <DefaultStartTimeModal
+        isOpen={isDefaultStartTimeModalOpen}
+        onClose={() => setIsDefaultStartTimeModalOpen(false)}
+        onSave={handleUpdateDefaultStartTime}
+        currentDefaultTime={selectedEvent?.default_start_time ?? null}
       />
 
       {/* Camera Check-In Modal */}

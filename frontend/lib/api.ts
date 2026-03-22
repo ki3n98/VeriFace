@@ -240,6 +240,13 @@ class ApiClient {
     );
   }
 
+  async updateEventDefaultStartTime(eventId: number, defaultStartTime: string | null) {
+    return this.post<{ id: number; event_name: string; default_start_time?: string }>(
+      "/protected/event/updateDefaultStartTime",
+      { event_id: eventId, default_start_time: defaultStartTime }
+    );
+  }
+
   async removeEvent(eventId: number) {
     return this.post<{ success: boolean; message: string }>(
       "/protected/event/removeEvent",

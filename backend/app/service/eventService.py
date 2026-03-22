@@ -8,6 +8,7 @@ from app.db.models.session import Session as SessionEvent
 
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+from datetime import time
 
 
 class EventService:
@@ -36,6 +37,25 @@ class EventService:
         if event:
             return event
         raise HTTPException(status_code=400, detail="Event id does not exist.")
+
+    def update_default_start_time(
+        self, event_id: int, default_start_time: str | None
+    ) -> "Event":
+        """Update event's default session start time. Parses 'HH:MM' or 'HH:MM:SS'."""
+        parsed: time | None = None
+        if default_start_time:
+            parts = default_start_time.strip().split(":")
+            if len(parts) >= 2:
+                try:
+                    h, m = int(parts[0]), int(parts[1])
+                    s = int(parts[2]) if len(parts) > 2 else 0
+                    if 0 <= h <= 23 and 0 <= m <= 59 and 0 <= s <= 59:
+                        parsed = time(hour=h, minute=m, second=s)
+                except ValueError:
+                    pass
+        return self.__eventRepository.update_event_by_id(
+            id=event_id, updates={"default_start_time": parsed}
+        )
     
 
     def remove_event(self, event_to_remove: EventToRemove) -> int:
