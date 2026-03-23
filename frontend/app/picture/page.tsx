@@ -135,7 +135,7 @@ export default function PicturePage() {
     }
   }, []);
 
-  // ── Reset back to validating ──────────────────────────────────────────────────
+  // ── Full restart — clears all frames and sectors ──────────────────────────────
   const resetToValidating = useCallback(() => {
     captureSessionRef.current += 1;
     pendingChecksRef.current = 0;
@@ -148,9 +148,17 @@ export default function PicturePage() {
     setPhaseSync("validating");
   }, [setPhaseSync]);
 
+  // ── Pause — face left the circle, keep clean frames and completed sectors ─────
+  const pauseCapture = useCallback(() => {
+    cleanFrameCountRef.current = 0;
+    setCleanProgress(0);
+    setPhaseSync("validating");
+  }, [setPhaseSync]);
+
   // ── Capture one frame for a sector ───────────────────────────────────────────
   const captureFrame = useCallback((i: number) => {
     if (sectorsDoneRef.current[i]) return;
+    // Mark sector done immediately so the scan always progresses
     sectorsDoneRef.current = sectorsDoneRef.current.map((v, idx) => idx === i ? true : v);
     setSectorsDone([...sectorsDoneRef.current]);
 
@@ -163,7 +171,6 @@ export default function PicturePage() {
     const ctx = tmp.getContext("2d")!;
     ctx.drawImage(video, 0, 0, CANVAS_W, CANVAS_H);
 
-    // Snapshot the session so stale callbacks from before a reset are discarded
     const session = captureSessionRef.current;
     pendingChecksRef.current += 1;
 
@@ -175,62 +182,50 @@ export default function PicturePage() {
 
       const file = new File([blob], `frame_${i}.jpg`, { type: "image/jpeg" });
 
-      // Check occlusion on this frame before accepting it
       try {
         const result = await apiClient.checkOcclusion(file);
         if (session !== captureSessionRef.current) { pendingChecksRef.current -= 1; return; }
         const data = (result as any)?.data;
         if (data?.enabled && data?.occluded) {
+          // Occluded — sector still counted, but frame excluded from upload
           pendingChecksRef.current -= 1;
-          sectorsDoneRef.current = sectorsDoneRef.current.map((v, idx) => idx === i ? false : v);
-          setSectorsDone([...sectorsDoneRef.current]);
-          setOcclusionError("Obstruction detected — please remove face coverings and recenter");
-          resetToValidating();
-          return;
+        } else {
+          // Clean frame — include in upload batch
+          setOcclusionError(null);
+          framesRef.current.push(file);
+          pendingChecksRef.current -= 1;
         }
       } catch {
         if (session !== captureSessionRef.current) { pendingChecksRef.current -= 1; return; }
-        // If occlusion check fails, proceed anyway
+        // Check failed — include frame anyway
+        framesRef.current.push(file);
+        pendingChecksRef.current -= 1;
       }
 
-      setOcclusionError(null);
-      framesRef.current.push(file);
-      pendingChecksRef.current -= 1;
-
-      // Only upload once ALL frames are collected AND every occlusion check has settled
+      // Once all sectors are done and all checks have settled, decide what to do
       if (
-        framesRef.current.length >= SECTOR_COUNT &&
+        sectorsDoneRef.current.every((v) => v) &&
         pendingChecksRef.current === 0 &&
         !uploadCalledRef.current
       ) {
-        uploadCalledRef.current = true;
-        doUpload();
+        if (framesRef.current.length < 5) {
+          setOcclusionError("Too many obstructed frames — please remove face coverings and try again");
+          resetToValidating();
+        } else {
+          uploadCalledRef.current = true;
+          doUpload();
+        }
       }
     }, "image/jpeg", 0.92);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Upload all frames ─────────────────────────────────────────────────────────
   const doUpload = useCallback(async () => {
+    stopCamera();
     setPhaseSync("uploading");
     setError(null);
 
     const frames = framesRef.current;
-
-    // Final batch occlusion check on all 8 frames before uploading
-    const occlusionResults = await Promise.all(
-      frames.map((frame) => apiClient.checkOcclusion(frame))
-    );
-    const anyOccluded = occlusionResults.some((res) => {
-      const data = (res as any)?.data;
-      return data?.enabled && data?.occluded;
-    });
-    if (anyOccluded) {
-      setOcclusionError("Obstruction detected in final check — please remove face coverings and try again");
-      resetToValidating();
-      return;
-    }
-
-    stopCamera();
 
     const res = await apiClient.uploadPictureMulti(frames);
     if ((res as any)?.error) {
@@ -269,6 +264,19 @@ export default function PicturePage() {
       ctx.drawImage(video, 0, 0, CANVAS_W, CANVAS_H);
       ctx.restore();
 
+      // Brightness check — sample a centre patch to avoid background skew
+      const patch = ctx.getImageData(CANVAS_W / 4, CANVAS_H / 4, CANVAS_W / 2, CANVAS_H / 2);
+      let luminanceSum = 0;
+      for (let p = 0; p < patch.data.length; p += 4) {
+        luminanceSum += 0.299 * patch.data[p] + 0.587 * patch.data[p + 1] + 0.114 * patch.data[p + 2];
+      }
+      const avgLuminance = luminanceSum / (patch.data.length / 4);
+      if (avgLuminance < 40) {
+        showWarning("Too dark — move to a brighter area");
+      } else if (avgLuminance > 220) {
+        showWarning("Too bright — avoid direct light behind you");
+      }
+
       ctx.fillStyle = "rgba(0,0,0,0.18)";
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
@@ -296,6 +304,12 @@ export default function PicturePage() {
 
       const faces = results.multiFaceLandmarks;
       if (!faces || faces.length === 0) return;
+
+      if (faces.length > 1) {
+        showWarning("Multiple faces detected — only one person should be in frame");
+        resetToValidating();
+        return;
+      }
 
       const lm = faces[0];
       const noseX = (1 - lm[1].x) * CANVAS_W;
@@ -346,7 +360,7 @@ export default function PicturePage() {
 
       if (dist > RING_RADIUS * 1.6) {
         showWarning("Move back into the circle");
-        resetToValidating();
+        pauseCapture();
         return;
       }
 
@@ -362,7 +376,7 @@ export default function PicturePage() {
 
       clearWarning();
     },
-    [captureFrame, showWarning, clearWarning, resetToValidating, setPhaseSync]
+    [captureFrame, showWarning, clearWarning, resetToValidating, pauseCapture, setPhaseSync]
   );
 
   // ── Start the full flow ───────────────────────────────────────────────────────
@@ -389,7 +403,7 @@ export default function PicturePage() {
         `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/${file}`,
     });
     faceMesh.setOptions({
-      maxNumFaces: 1,
+      maxNumFaces: 4,
       refineLandmarks: false,
       minDetectionConfidence: 0.7,
       minTrackingConfidence: 0.7,

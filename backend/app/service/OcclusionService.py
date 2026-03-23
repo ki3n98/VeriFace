@@ -18,7 +18,9 @@ import torch.nn as nn
 from torchvision import models, transforms
 from PIL import Image
 
-MODEL_PATH = Path(__file__).parent.parent.parent / "models" / "occlusion_model.pth"
+MODEL_PATH  = Path(__file__).parent.parent.parent / "models" / "occlusion_model.pth"
+# DEBUG_DIR   = Path(__file__).parent.parent.parent / "debug_frames"
+# DEBUG_DIR.mkdir(exist_ok=True)
 
 MEAN = [0.485, 0.456, 0.406]
 STD  = [0.229, 0.224, 0.225]
@@ -70,6 +72,7 @@ class OcclusionService:
 
         # BGR → RGB → PIL → tensor
         pil    = Image.fromarray(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
+        # pil_resized = pil.resize((224, 224))  # what the model actually sees
         tensor = _transform(pil).unsqueeze(0).to(self.device)
 
         with torch.no_grad():
@@ -80,6 +83,13 @@ class OcclusionService:
 
         # Reject unless the model is confidently clear — uncertainty counts as occluded
         is_occ = clear_prob < threshold
+        label  = "OCCLUDED" if is_occ else "CLEAR"
+        print(f"[OcclusionService] clear={clear_prob:.3f}  occluded={occluded_prob:.3f}  result={label}")
+
+        # import time
+        # debug_path = DEBUG_DIR / f"{int(time.time()*1000)}_{label}.jpg"
+        # pil_resized.save(debug_path)
+
         return is_occ, occluded_prob
 
 
