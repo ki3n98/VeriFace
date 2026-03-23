@@ -1,23 +1,14 @@
 from pydantic import BaseModel, ConfigDict
 from typing import List, Union
-from datetime import datetime
+from datetime import datetime, time
 
-"""
-    __tablename__ = "Events"
-    id = Column(Integer, primary_key=True) 
-
-    user_ids = Column(ForeignKey("Users.id"))
-    event_name = Column(String(250))
-    start_date = Column(DateTime, nullable = False)
-    end_date = Column(DateTime, nullable = False)
-    location = Column(String(250), nullable = False)
-"""
 class EventInCreate(BaseModel):
     event_name: str
     user_id: Union[int, None] = None
     start_date: Union[datetime, None] = None
     end_date: Union[datetime, None] = None
     location: Union[str, None] = None
+    default_start_time: Union[time, None] = None
 
 
 class EventInUpdate(BaseModel):
@@ -27,7 +18,7 @@ class EventInUpdate(BaseModel):
     start_date: Union[datetime, None] = None
     end_date: Union[datetime, None] = None
     location: Union[str, None] = None
-
+    default_start_time: Union[time, None] = None
 
 
 class EventOutput(BaseModel):
@@ -39,6 +30,12 @@ class EventOutput(BaseModel):
     start_date: Union[datetime, None] = None
     end_date: Union[datetime, None] = None
     location: Union[str, None] = None
+    default_start_time: Union[time, None] = None
+
+
+class UpdateDefaultStartTimeRequest(BaseModel):
+    event_id: int
+    default_start_time: Union[str, None] = None  # "14:30" or "14:30:00"
 
 
 class EventToRemove(BaseModel):
