@@ -10,3 +10,5 @@ class User(Base):
     password = Column(String(250))
     embedding = Column(ARRAY(Float), nullable=True)
     avatar_url = Column(Text, nullable=True)
+    #add nullable date account created.
+    #account_created = Column(DateTime, nullable=True)

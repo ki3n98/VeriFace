@@ -448,6 +448,61 @@ class ApiClient {
       `/protected/email-change/verify?token=${encodeURIComponent(token)}`
     );
   }
+
+  // Breakout Rooms
+  async getBreakoutRooms(eventId: number) {
+    return this.post<{
+      success: boolean;
+      assignments: Array<{
+        user_id: number;
+        room_number: number;
+        first_name: string;
+        last_name: string;
+        email: string;
+      }>;
+    }>("/protected/breakout/getBreakoutRooms", { event_id: eventId });
+  }
+
+  async autoAssignBreakoutRooms(eventId: number, numRooms: number, userIds: number[]) {
+    return this.post<{ success: boolean; message: string }>(
+      "/protected/breakout/autoAssign",
+      { event_id: eventId, num_rooms: numRooms, user_ids: userIds }
+    );
+  }
+
+  async pushUsersToBreakoutRoom(eventId: number, roomNumber: number, userIds: number[]) {
+    return this.post<{ success: boolean; message: string }>(
+      "/protected/breakout/pushUsers",
+      { event_id: eventId, room_number: roomNumber, user_ids: userIds }
+    );
+  }
+
+  async removeUserFromBreakoutRoom(eventId: number, userId: number) {
+    return this.post<{ success: boolean; message: string }>(
+      "/protected/breakout/removeUser",
+      { event_id: eventId, user_id: userId }
+    );
+  }
+
+  async endBreakoutRooms(eventId: number) {
+    return this.post<{ success: boolean; message: string }>(
+      "/protected/breakout/endBreakoutRooms",
+      { event_id: eventId }
+    );
+  }
+
+  async getMyBreakoutRoom(eventId: number) {
+    return this.post<{
+      success: boolean;
+      room_number: number | null;
+      members: Array<{
+        user_id: number;
+        first_name: string;
+        last_name: string;
+        email: string;
+      }>;
+    }>("/protected/breakout/getMyRoom", { event_id: eventId });
+  }
 }
 
 export const apiClient = new ApiClient(API_BASE_URL);

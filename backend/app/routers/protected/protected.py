@@ -11,6 +11,7 @@ from app.routers.protected.avatar import avatarRouter
 from app.routers.protected.achievements import achievementsRouter
 from app.routers.protected.emailChange import emailChangeRouter
 from app.routers.protected.profile import profileRouter
+from app.routers.protected.breakout import breakoutRouter
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
@@ -28,6 +29,7 @@ protectedRouter.include_router(router=avatarRouter, tags=["avatar"], prefix="/av
 protectedRouter.include_router(router=achievementsRouter, tags=["achievements"], prefix="/achievements")
 protectedRouter.include_router(router=emailChangeRouter, tags=["emailChange"], prefix="/email-change")
 protectedRouter.include_router(router=profileRouter, tags=["profile"], prefix="/profile")
+protectedRouter.include_router(router=breakoutRouter, tags=["breakout"], prefix="/breakout")
 
 
 @protectedRouter.get("/testToken")

@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from app.util.init_db import create_table
 from app.routers.auth import authRouter
 from app.routers.protected.protected import protectedRouter
-from app.util.ws_manager import manager
+from app.util.ws_manager import manager, breakout_manager
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -39,6 +39,17 @@ async def websocket_attendance(websocket: WebSocket, session_id: int):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket, session_id)
+
+
+@app.websocket("/ws/breakout/{session_id}")
+async def websocket_breakout(websocket: WebSocket, session_id: int):
+    """Event clients connect here to receive live breakout room updates."""
+    await breakout_manager.connect(websocket, session_id)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        breakout_manager.disconnect(websocket, session_id)
 
 
 @app.get("/")

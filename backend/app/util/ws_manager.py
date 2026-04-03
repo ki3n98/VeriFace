@@ -36,3 +36,6 @@ class ConnectionManager:
 
 # Single global instance shared across the app
 manager = ConnectionManager()
+
+#instance for breakout room live updates
+breakout_manager = ConnectionManager()
