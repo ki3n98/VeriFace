@@ -59,6 +59,7 @@ export default function PicturePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const faceMeshRef = useRef<any>(null);
+  const handsRef = useRef<any>(null);
   const rafRef = useRef<number>(0);
   const sectorsDoneRef = useRef<boolean[]>(new Array(SECTOR_COUNT).fill(false));
   const framesRef = useRef<File[]>([]);
@@ -122,6 +123,7 @@ export default function PicturePage() {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     faceMeshRef.current = null;
+    handsRef.current = null;
   }, []);
 
   const startCamera = useCallback(async () => {
@@ -166,10 +168,13 @@ export default function PicturePage() {
     if (!video) return;
 
     const tmp = document.createElement("canvas");
-    tmp.width = CANVAS_W;
-    tmp.height = CANVAS_H;
+    const cropSize = RING_RADIUS * 2;
+    const cropX = CANVAS_W / 2 - RING_RADIUS;
+    const cropY = CANVAS_H / 2 - RING_RADIUS;
+    tmp.width = cropSize;
+    tmp.height = cropSize;
     const ctx = tmp.getContext("2d")!;
-    ctx.drawImage(video, 0, 0, CANVAS_W, CANVAS_H);
+    ctx.drawImage(video, cropX, cropY, cropSize, cropSize, 0, 0, cropSize, cropSize);
 
     const session = captureSessionRef.current;
     pendingChecksRef.current += 1;
@@ -318,6 +323,14 @@ export default function PicturePage() {
       const fdy = noseY - cy;
       const dist = Math.sqrt(fdx * fdx + fdy * fdy);
 
+      // Face size check — lm[234] and lm[454] are the outer cheek landmarks
+      const faceWidth = Math.abs(lm[454].x - lm[234].x) * CANVAS_W;
+      if (faceWidth < 100) {
+        showWarning("Get closer to the camera");
+        if (currentPhase === "capture") pauseCapture();
+        return;
+      }
+
       if (currentPhase === "validating") {
         // Center target circle
         ctx.beginPath();
@@ -412,10 +425,44 @@ export default function PicturePage() {
     await faceMesh.initialize();
     faceMeshRef.current = faceMesh;
 
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const { Hands } = await import("@mediapipe/hands");
+    const hands = new Hands({
+      locateFile: (file: string) =>
+        `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/${file}`,
+    });
+    hands.setOptions({
+      maxNumHands: 2,
+      modelComplexity: 0,
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.5,
+    });
+    hands.onResults((results: any) => {
+      if (!results.multiHandLandmarks?.length) return;
+      const cx = CANVAS_W / 2;
+      const cy = CANVAS_H / 2;
+      const inCircle = results.multiHandLandmarks.some((handLandmarks: any[]) =>
+        handLandmarks.some((lm: any) => {
+          const x = (1 - lm.x) * CANVAS_W;
+          const y = lm.y * CANVAS_H;
+          const dx = x - cx;
+          const dy = y - cy;
+          return Math.sqrt(dx * dx + dy * dy) < RING_RADIUS;
+        })
+      );
+      if (inCircle) showWarning("Move your hands out of frame");
+    });
+    await hands.initialize();
+    handsRef.current = hands;
+
     const video = videoRef.current!;
     const sendFrame = async () => {
-      if (video.readyState >= 2 && faceMeshRef.current) {
-        await faceMeshRef.current.send({ image: video });
+      if (video.readyState >= 2) {
+        const sends: Promise<void>[] = [];
+        if (faceMeshRef.current) sends.push(faceMeshRef.current.send({ image: video }));
+        if (handsRef.current) sends.push(handsRef.current.send({ image: video }));
+        await Promise.all(sends);
       }
       rafRef.current = requestAnimationFrame(sendFrame);
     };
