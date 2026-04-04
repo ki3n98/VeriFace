@@ -9,6 +9,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PanelLeft, Home, Calendar, Users, Cog, LogOut } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { useEvents } from "@/lib/hooks/useEvents";
+import {
+  canAccessParticipation,
+  getRoleBadgeClass,
+  getRoleLabel,
+  isEventRole,
+  type EventRole,
+} from "@/lib/eventRoles";
 import { ColdCallWheel } from "./components/ColdCallWheel";
 
 interface User {
@@ -130,6 +137,12 @@ export default function ParticipationPage() {
   };
 
   const selectedEvent = events.find((e) => e.id === eventId);
+  const queryRoleParam = searchParams?.get("role");
+  const queryRole: EventRole | null = isEventRole(queryRoleParam)
+    ? queryRoleParam
+    : null;
+  const userRole = selectedEvent?.role ?? queryRole ?? null;
+  const canUseParticipation = canAccessParticipation(userRole);
 
   if (loading) {
     return (
@@ -165,7 +178,9 @@ export default function ParticipationPage() {
           {[
             { href: eventId ? `/dashboard?eventId=${eventId}` : "/dashboard", label: "Home", icon: Home, match: (p: string) => p === "/dashboard" },
             { href: "/events", label: "Events", icon: Calendar, match: (p: string) => p === "/events" },
-            { href: eventId ? `/participation?eventId=${eventId}` : "/participation", label: "Participation", icon: Users, match: (p: string) => p.startsWith("/participation") },
+            ...(canUseParticipation
+              ? [{ href: eventId ? `/participation?eventId=${eventId}` : "/participation", label: "Participation", icon: Users, match: (p: string) => p.startsWith("/participation") }]
+              : []),
             { href: "/settings", label: "Settings", icon: Cog, match: (p: string) => p.startsWith("/settings") },
           ].map(({ href, label, icon: Icon, match }) => (
             <Link
@@ -240,6 +255,11 @@ export default function ParticipationPage() {
                 {selectedEvent.event_name} · {latestSessionLabel}
               </p>
             )}
+            {eventId && userRole && (
+              <div className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-medium text-white ${getRoleBadgeClass(userRole)}`}>
+                {getRoleLabel(userRole)}
+              </div>
+            )}
           </div>
 
         {!eventId ? (
@@ -277,6 +297,12 @@ export default function ParticipationPage() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        ) : !canUseParticipation ? (
+          <Card className="bg-white dark:bg-[#1a1a1a] shadow-sm">
+            <CardContent className="py-10 px-6 text-muted-foreground">
+              You do not have permission to use participation tools for this event.
             </CardContent>
           </Card>
         ) : (

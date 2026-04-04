@@ -53,7 +53,9 @@ export function CreateEventModal({ isOpen, onClose, onSubmit }: CreateEventModal
         alert(`Failed to upload CSV: ${response.error}`)
       } else {
         const data = response.data
-        if (data.success) {
+        if (!data) {
+          alert("CSV upload returned no data.")
+        } else if (data.success) {
           alert(`Successfully added ${data.total_rows} members to the event!`)
         } else {
           alert(`CSV upload completed with errors. ${data.message}`)
@@ -260,4 +262,3 @@ export function CreateEventModal({ isOpen, onClose, onSubmit }: CreateEventModal
     </div>
   )
 }
-

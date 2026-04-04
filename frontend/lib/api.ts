@@ -1,3 +1,5 @@
+import type { EventRole } from "./eventRoles";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:80";
 
 interface ApiResponse<T> {
@@ -11,6 +13,30 @@ interface AddMemberResponse {
   message: string;
   user_id: number;
   is_new_user?: boolean;
+}
+
+interface CsvUploadSuccessResponse {
+  success: true;
+  message: string;
+  total_rows: number;
+  new_users_created?: number;
+  existing_users_added?: number;
+  users_already_in_event?: number;
+}
+
+interface CsvUploadFailureResponse {
+  success: false;
+  message: string;
+  total_rows: number;
+  valid_rows: number;
+  invalid_rows: number;
+  errors?: Array<{
+    row_number: number;
+    first_name: string;
+    last_name: string;
+    email: string;
+    error_message: string;
+  }>;
 }
 
 class ApiClient {
@@ -66,7 +92,7 @@ class ApiClient {
       const raw = await response.text();
 
       // Parse response (JSON if possible, otherwise treat as text)
-      let data: any = null;
+      let data: unknown = null;
       const contentType = response.headers.get("content-type") || "";
       if (contentType.includes("application/json")) {
         try {
@@ -85,17 +111,20 @@ class ApiClient {
 
       if (!response.ok) {
         // FastAPI often returns {detail:[{msg,...}]} for validation errors
-        const detail = data?.detail;
+        const errorData = typeof data === "object" && data !== null
+          ? data as Record<string, unknown>
+          : {};
+        const detail = errorData.detail;
         const message =
           (Array.isArray(detail) ? detail?.[0]?.msg : detail) ||
-          data?.message ||
-          data?.error ||
+          errorData.message ||
+          errorData.error ||
           "An error occurred";
 
         return { error: message };
       }
 
-      return { data };
+      return { data: data as T };
     } catch (error) {
       console.error(`[API] Request failed:`, error);
       if (error instanceof TypeError && error.message === "Failed to fetch") {
@@ -189,7 +218,7 @@ class ApiClient {
       });
 
       const raw = await response.text();
-      let data: any = null;
+      let data: unknown = null;
       try {
         data = raw ? JSON.parse(raw) : null;
       } catch {
@@ -197,10 +226,18 @@ class ApiClient {
       }
 
       if (!response.ok) {
-        return { error: data.detail || data.message || "Failed to upload CSV" };
+        const errorData = typeof data === "object" && data !== null
+          ? data as Record<string, unknown>
+          : {};
+        return {
+          error:
+            (typeof errorData.detail === "string" && errorData.detail)
+            || (typeof errorData.message === "string" && errorData.message)
+            || "Failed to upload CSV",
+        };
       }
 
-      return { data };
+      return { data: data as CsvUploadSuccessResponse | CsvUploadFailureResponse };
     } catch (error) {
       console.error(`[API] CSV upload failed:`, error);
       return { error: error instanceof Error ? error.message : "Network error" };
@@ -228,12 +265,12 @@ class ApiClient {
         first_name: string;
         last_name: string;
         email: string;
-        role: string;
+        role: EventRole;
       }>
     >("/protected/event/getUsers", { id: eventId });
   }
 
-  async updateMemberRole(eventId: number, userId: number, role: string) {
+  async updateMemberRole(eventId: number, userId: number, role: EventRole) {
     return this.post<{ success: boolean; message: string }>(
       `/protected/event/${eventId}/updateMemberRole`,
       { user_id: userId, role }
@@ -396,7 +433,7 @@ class ApiClient {
     for (const file of files) {
       formData.append("upload_images", file);
     }
-    return this.post<any>("/protected/uploadPictureMulti", formData);
+    return this.post<unknown>("/protected/uploadPictureMulti", formData);
   }
 
   async resetEmbedding() {

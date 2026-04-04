@@ -4,7 +4,7 @@ from typing import Literal, Union
 class EventUserCreate(BaseModel):
     user_id:int
     event_id: int
-    role: str = "member"
+    role: Literal["owner", "admin", "moderator", "viewer", "member"] = "member"
 
 class EventUserRemove(BaseModel):
     user_id:int
@@ -24,7 +24,7 @@ class MemberRemoveRequest(BaseModel):
 
 class RoleUpdateRequest(BaseModel):
     user_id: int
-    role: Literal["admin", "member"]
+    role: Literal["admin", "moderator", "viewer", "member"]
 
 
 class MemberWithRole(BaseModel):

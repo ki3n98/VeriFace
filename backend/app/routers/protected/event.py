@@ -1,7 +1,7 @@
 from app.core.database import get_db
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from app.util.protectRoute import get_current_user
-from app.util.permission import check_permission
+from app.util.permission import check_permission, get_event_role, can_assign_role
 from app.util.csv_processor import validate_csv_file, parse_and_validate_csv
 from app.db.schema.user import UserOutput
 from app.db.schema.event import EventInCreate, EventToRemove, EventId, EventOutput, EventWithRole, InviteEmailResponse, UpdateDefaultStartTimeRequest
@@ -52,6 +52,7 @@ async def update_default_start_time(
             user_id=user.id,
             event_id=body.event_id,
             session=session,
+            required_role="owner",
         ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -106,14 +107,24 @@ async def add_event_user_relationship(
     session: Session = Depends(get_db),
 ):
     try:
-        if not check_permission(
-            user_id=user.id, 
+        actor_role = get_event_role(
+            user_id=user.id,
             event_id=relationship.event_id,
-            session=session
-            ):
+            session=session,
+        )
+        if actor_role not in {"owner", "admin"}:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Current user does not have permission to modify event.")
+        if not can_assign_role(
+            actor_role=actor_role,
+            target_current_role=None,
+            target_role=relationship.role,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Current user cannot assign that role.",
+            )
         
         return EventUserService(session=session).add_relationship(
             event_user=relationship
@@ -133,7 +144,8 @@ async def remove_event_user_relationship(
         if not check_permission(
             user_id=user.id, 
             event_id=relationship.event_id,
-            session=session):
+            session=session,
+            required_role="owner"):
         
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -158,7 +170,8 @@ async def get_users(
         if not check_permission(
             user_id=user.id, 
             event_id=event_id.id,
-            session=session):
+            session=session,
+            required_role="viewer"):
         
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -315,21 +328,35 @@ async def update_member_role(
     user: UserOutput = Depends(get_current_user),
     session: Session = Depends(get_db),
 ) -> dict:
-    """Owner-only: promote/demote a member's role."""
+    """Update a member's role according to the event role assignment rules."""
     try:
-        if not check_permission(user_id=user.id, event_id=event_id, session=session, required_role="owner"):
+        actor_role = get_event_role(user_id=user.id, event_id=event_id, session=session)
+        if actor_role not in {"owner", "admin"}:
             raise HTTPException(
                 status_code=403,
-                detail="Only the event owner can change member roles."
+                detail="Current user does not have permission to change member roles."
             )
 
         if body.user_id == user.id:
             raise HTTPException(status_code=400, detail="You cannot change your own role.")
 
-        # Prevent changing the event creator's role
-        event = EventService(session=session).get_event_by_id(event_id)
-        if body.user_id == event.user_id:
-            raise HTTPException(status_code=400, detail="Cannot change the event owner's role.")
+        target_current_role = get_event_role(
+            user_id=body.user_id,
+            event_id=event_id,
+            session=session,
+        )
+        if target_current_role is None:
+            raise HTTPException(status_code=404, detail="User is not a member of this event.")
+
+        if not can_assign_role(
+            actor_role=actor_role,
+            target_current_role=target_current_role,
+            target_role=body.role,
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Current user cannot assign that role for this member.",
+            )
 
         success = EventUserService(session=session).update_user_role(
             user_id=body.user_id, event_id=event_id, role=body.role
@@ -357,7 +384,12 @@ async def upload_users_csv(
 ) -> Union[CSVUploadSuccess, CSVUploadFailure]: 
     """Bulk add users to an event via CSV upload."""
     try:
-        if not check_permission(user_id=user.id, event_id=event_id, session=session):
+        if not check_permission(
+            user_id=user.id,
+            event_id=event_id,
+            session=session,
+            required_role="admin",
+        ):
             raise HTTPException(
                 status_code=403,
                 detail="You do not have permission to add users to that event"
@@ -423,7 +455,12 @@ async def add_single_member(
 ) -> dict:
     """Add a single member to an event. Creates user if they don't exist."""
     try:
-        if not check_permission(user_id=user.id, event_id=event_id, session=session):
+        if not check_permission(
+            user_id=user.id,
+            event_id=event_id,
+            session=session,
+            required_role="admin",
+        ):
             raise HTTPException(
                 status_code=403,
                 detail="You do not have permission to add users to that event"
@@ -500,7 +537,12 @@ async def remove_member(
 ) -> dict:
     """Remove a member from an event"""
     try:
-        if not check_permission(user_id=user.id, event_id=event_id, session=session):
+        if not check_permission(
+            user_id=user.id,
+            event_id=event_id,
+            session=session,
+            required_role="owner",
+        ):
             raise HTTPException(
                 status_code=403,
                 detail="You do not have permission to remove users to that event"
@@ -528,7 +570,12 @@ async def add_remaining_members(
     user: UserOutput = Depends(get_current_user)
 ):  
     try:
-        if not check_permission(user_id=user.id, event_id=event_id, session=session):
+        if not check_permission(
+            user_id=user.id,
+            event_id=event_id,
+            session=session,
+            required_role="admin",
+        ):
             raise HTTPException(
                 status_code=403,
                 detail="You do not have permission to add users to that event"
@@ -550,7 +597,12 @@ async def send_invite_emails(
 ) -> InviteEmailResponse:
     """Send invite emails to all unregistered members in an event."""
     try:
-        if not check_permission(user_id=user.id, event_id=event_id, session=session):
+        if not check_permission(
+            user_id=user.id,
+            event_id=event_id,
+            session=session,
+            required_role="admin",
+        ):
             raise HTTPException(
                 status_code=403,
                 detail="You do not have permission to send invites for this event"

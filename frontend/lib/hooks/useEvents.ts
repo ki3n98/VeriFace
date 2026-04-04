@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { apiClient } from '../api'
+import type { EventRole } from '../eventRoles'
 
 export interface Event {
   id: number
@@ -8,7 +9,7 @@ export interface Event {
   end_date?: string
   location?: string
   user_id?: number
-  role: 'owner' | 'admin' | 'member'
+  role: EventRole
   default_start_time?: string | null  // "14:30:00" - applied to new sessions
 }
 

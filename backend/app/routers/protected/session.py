@@ -42,7 +42,8 @@ async def create_session_attendance(
         if not check_permission(
             user_id=user.id, 
             event_id=session_data.event_id,
-            session=session
+            session=session,
+            required_role="moderator",
             ):
         
             raise HTTPException(
@@ -89,6 +90,7 @@ async def update_session_start_time(
             user_id=user.id,
             event_id=session_obj.event_id,
             session=db,
+            required_role="moderator",
         ):
             raise HTTPException(
                 status_code=401,
@@ -149,7 +151,7 @@ async def get_sessions(
             user_id=user.id,
             event_id=session_data.event_id,
             session=session,
-            required_role="member",
+            required_role="viewer",
         ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -183,6 +185,7 @@ async def get_event_attendance_overview(
             user_id=user.id,
             event_id=body.event_id,
             session=session,
+            required_role="viewer",
         ):
             raise HTTPException(
                 status_code=401,
@@ -223,6 +226,7 @@ async def get_attendance(
             user_id=user.id,
             event_id=session_obj.event_id,
             session=session,
+            required_role="viewer",
         ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -268,6 +272,7 @@ async def update_attendance_status(
             user_id=user.id,
             event_id=session_obj.event_id,
             session=session,
+            required_role="moderator",
         ):
             raise HTTPException(
                 status_code=401,
@@ -396,5 +401,4 @@ def turn_on_camera(session_id:int
 
         
     
-
 

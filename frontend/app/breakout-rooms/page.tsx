@@ -10,6 +10,14 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api";
 import { useEvents } from "@/lib/hooks/useEvents";
 import { useBreakoutWebSocket } from "@/lib/hooks/useBreakoutWebSocket";
+import {
+  canAccessParticipation,
+  canManageBreakouts,
+  getRoleBadgeClass,
+  getRoleLabel,
+  isEventRole,
+  type EventRole,
+} from "@/lib/eventRoles";
 
 interface BreakoutAssignment {
   user_id: number;
@@ -19,12 +27,16 @@ interface BreakoutAssignment {
   email: string;
 }
 
+interface BreakoutUpdatePayload {
+  assignments?: BreakoutAssignment[];
+}
+
 interface EventMember {
   id: number;
   first_name: string;
   last_name: string;
   email: string;
-  role: string;
+  role: EventRole;
 }
 
 interface User {
@@ -43,7 +55,6 @@ export default function BreakoutRoomsPage() {
   const eventId = searchParams?.get("eventId")
     ? parseInt(searchParams.get("eventId")!, 10)
     : null;
-  const userRole = searchParams?.get("role") as "owner" | "member" | null;
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -71,6 +82,13 @@ export default function BreakoutRoomsPage() {
 
   const { events } = useEvents();
   const selectedEvent = events.find((e) => e.id === eventId);
+  const queryRoleParam = searchParams?.get("role");
+  const queryRole: EventRole | null = isEventRole(queryRoleParam)
+    ? queryRoleParam
+    : null;
+  const userRole = selectedEvent?.role ?? queryRole ?? null;
+  const canUseParticipation = canAccessParticipation(userRole);
+  const canManageRooms = canManageBreakouts(userRole);
 
   const handleLogout = () => {
     apiClient.logout();
@@ -141,11 +159,11 @@ export default function BreakoutRoomsPage() {
 
   // Fetch breakout room assignments (owner)
   useEffect(() => {
-    if (userRole !== "owner" || !eventId) return;
+    if (!canManageRooms || !eventId) return;
     apiClient.getBreakoutRooms(eventId).then((res) => {
       setAssignments(res.data?.assignments ?? []);
     });
-  }, [eventId, userRole]);
+  }, [canManageRooms, eventId]);
 
   // Fetch my room (member)
   useEffect(() => {
@@ -163,14 +181,16 @@ export default function BreakoutRoomsPage() {
 
   // WebSocket live updates (scoped per session, all event members connected)
   const handleBreakoutUpdate = useCallback(
-    (data: any) => {
-      if (userRole === "owner") {
+    (data: BreakoutUpdatePayload) => {
+      if (canManageRooms) {
         setAssignments(data.assignments ?? []);
       } else if (user) {
-        const mine = data.assignments?.find((a: any) => a.user_id === user.id);
+        const assignments = data.assignments ?? [];
+        const mine = assignments.find((assignment) => assignment.user_id === user.id);
         if (mine) {
-          const roommates = data.assignments.filter(
-            (a: any) => a.room_number === mine.room_number && a.user_id !== user.id
+          const roommates = assignments.filter(
+            (assignment) =>
+              assignment.room_number === mine.room_number && assignment.user_id !== user.id
           );
           setMyRoomData({ room_number: mine.room_number, members: roommates });
         } else {
@@ -178,7 +198,7 @@ export default function BreakoutRoomsPage() {
         }
       }
     },
-    [userRole, user]
+    [canManageRooms, user]
   );
 
   useBreakoutWebSocket(activeSessionId, handleBreakoutUpdate);
@@ -315,17 +335,19 @@ export default function BreakoutRoomsPage() {
               match: (p: string) => p === "/events",
             },
             {
-              href: eventId ? `/participation?eventId=${eventId}` : "/participation",
-              label: "Participation",
-              icon: Users,
-              match: (p: string) => p?.startsWith("/participation"),
-            },
-            {
               href: "/settings",
               label: "Settings",
               icon: Cog,
               match: (p: string) => p?.startsWith("/settings"),
             },
+            ...(canUseParticipation
+              ? [{
+                  href: eventId ? `/participation?eventId=${eventId}` : "/participation",
+                  label: "Participation",
+                  icon: Users,
+                  match: (p: string) => p?.startsWith("/participation"),
+                }]
+              : []),
           ].map(({ href, label, icon: Icon, match }) => (
             <Link
               key={label}
@@ -405,18 +427,16 @@ export default function BreakoutRoomsPage() {
               )}
             </div>
           </div>
-          <div
-            className={`px-3 py-1.5 rounded-full text-sm font-medium text-white ${
-              userRole === "owner" ? "bg-purple-700" : "bg-blue-600"
-            }`}
-          >
-            {userRole === "owner" ? "Owner" : "Member"}
-          </div>
+          {userRole && (
+            <div className={`px-3 py-1.5 rounded-full text-sm font-medium text-white ${getRoleBadgeClass(userRole)}`}>
+              {getRoleLabel(userRole)}
+            </div>
+          )}
         </div>
 
         {!eventId ? (
           <p className="text-muted-foreground">No event selected.</p>
-        ) : userRole === "owner" ? (
+        ) : canManageRooms ? (
           /* ── OWNER VIEW ── */
           assignments === null ? (
             <p className="text-muted-foreground">Loading...</p>
@@ -668,6 +688,12 @@ export default function BreakoutRoomsPage() {
               </div>
             </div>
           )
+        ) : userRole !== "member" ? (
+          <Card className="max-w-md">
+            <CardContent className="py-8 text-muted-foreground">
+              You do not have permission to manage breakout rooms for this event.
+            </CardContent>
+          </Card>
         ) : (
           /* ── MEMBER VIEW ── */
           <div className="max-w-md">

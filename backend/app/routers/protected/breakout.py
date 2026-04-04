@@ -55,7 +55,12 @@ async def get_breakout_rooms(
 ) -> dict:
     """Get all current room assignments for an event."""
     try:
-        if not check_permission(user_id=user.id, event_id=body.event_id, session=db):
+        if not check_permission(
+            user_id=user.id,
+            event_id=body.event_id,
+            session=db,
+            required_role="moderator",
+        ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Current user does not have permission to view this event.",
@@ -77,7 +82,12 @@ async def get_users_in_session(
 ) -> dict:
     """Get users who are currently checked into the latest session."""
     try:
-        if not check_permission(user_id=user.id, event_id=body.event_id, session=db):
+        if not check_permission(
+            user_id=user.id,
+            event_id=body.event_id,
+            session=db,
+            required_role="moderator",
+        ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Current user does not have permission to view this event.",
@@ -99,7 +109,12 @@ async def auto_assign(
 ) -> dict:
     """Auto-assign a list of users evenly across rooms, then broadcast update."""
     try:
-        if not check_permission(user_id=user.id, event_id=body.event_id, session=db):
+        if not check_permission(
+            user_id=user.id,
+            event_id=body.event_id,
+            session=db,
+            required_role="moderator",
+        ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Current user does not have permission to modify this event.",
@@ -123,7 +138,12 @@ async def push_users(
 ) -> dict:
     """Assign one or more users to a specific room, then broadcast update."""
     try:
-        if not check_permission(user_id=user.id, event_id=body.event_id, session=db):
+        if not check_permission(
+            user_id=user.id,
+            event_id=body.event_id,
+            session=db,
+            required_role="moderator",
+        ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Current user does not have permission to modify this event.",
@@ -147,7 +167,12 @@ async def remove_user(
 ) -> dict:
     """Remove a user from their breakout room, then broadcast update."""
     try:
-        if not check_permission(user_id=user.id, event_id=body.event_id, session=db):
+        if not check_permission(
+            user_id=user.id,
+            event_id=body.event_id,
+            session=db,
+            required_role="moderator",
+        ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Current user does not have permission to modify this event.",
@@ -171,7 +196,12 @@ async def end_breakout_rooms(
 ) -> dict:
     """Delete all room assignments for an event and broadcast empty update."""
     try:
-        if not check_permission(user_id=user.id, event_id=body.event_id, session=db):
+        if not check_permission(
+            user_id=user.id,
+            event_id=body.event_id,
+            session=db,
+            required_role="moderator",
+        ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Current user does not have permission to modify this event.",

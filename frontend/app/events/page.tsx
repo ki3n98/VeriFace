@@ -8,6 +8,7 @@ import { CreateEventModal } from "./components/CreateEventModal";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { useEvents } from "@/lib/hooks/useEvents";
 import { apiClient } from "@/lib/api";
+import { getRoleLabel, getRoleSoftBadgeClass } from "@/lib/eventRoles";
 
 interface EventCreateResponse {
   id: number;
@@ -77,7 +78,9 @@ export default function EventsPage() {
             );
           } else {
             const csvData = csvResponse.data;
-            if (csvData.success) {
+            if (!csvData) {
+              alert("Event created, but CSV upload returned no data.");
+            } else if (csvData.success) {
               alert(
                 `Event created and ${csvData.total_rows} members added successfully!`,
               );
@@ -210,14 +213,8 @@ export default function EventsPage() {
                 )}
 
                 {/* Role badge */}
-                <span className={`absolute top-4 left-4 text-xs font-medium px-2 py-1 rounded-full ${
-                  event.role === "owner"
-                    ? "bg-purple-100 text-purple-700"
-                    : event.role === "admin"
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-green-100 text-green-700"
-                }`}>
-                  {event.role === "owner" ? "Owner" : event.role === "admin" ? "Admin" : "Member"}
+                <span className={`absolute top-4 left-4 text-xs font-medium px-2 py-1 rounded-full ${getRoleSoftBadgeClass(event.role)}`}>
+                  {getRoleLabel(event.role)}
                 </span>
 
                 {/* Event Image Placeholder */}

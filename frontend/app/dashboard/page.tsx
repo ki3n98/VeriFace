@@ -46,6 +46,22 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api";
 import { useEvents } from "@/lib/hooks/useEvents";
+import {
+  canAccessParticipation,
+  canAddMembers,
+  canAssignRoles,
+  canEditDefaults,
+  canEditTargetRole,
+  canManageSessions,
+  canRemoveMembers,
+  canViewAnalytics,
+  getAssignableRolesForActor,
+  getRoleBadgeClass,
+  getRoleColor,
+  getRoleLabel,
+  isEventRole,
+  type EventRole,
+} from "@/lib/eventRoles";
 import { AddMemberModal } from "@/app/events/components/AddMemberModal";
 import { QRCodeModal } from "@/app/dashboard/components/QRCodeModal";
 import { CreateSessionModal } from "@/app/dashboard/components/CreateSessionModal";
@@ -56,14 +72,14 @@ import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { MemberDashboard } from "@/app/dashboard/components/MemberDashboard";
 import { StatusDropdown } from "@/app/dashboard/components/StatusDropdown";
 import { useSessionWebSocket } from "@/lib/hooks/useWebSocket";
-import { X, Shield, Camera, Clock } from "lucide-react";
+import { X, Camera, Clock, ChevronDown } from "lucide-react";
 
 interface EventMember {
   id: number;
   first_name: string;
   last_name: string;
   email: string;
-  role: string;
+  role: EventRole;
 }
 
 interface AttendanceRecord {
@@ -164,6 +180,7 @@ export default function Dashboard() {
     useState(false);
   const [isUpdatingStartTime, setIsUpdatingStartTime] = useState(false);
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
+  const [openRoleMenuFor, setOpenRoleMenuFor] = useState<number | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [sessions, setSessions] = useState<
@@ -210,14 +227,20 @@ export default function Dashboard() {
       localStorage.setItem("lastEventId", String(eventId));
     }
   }, [eventId]);
-  const queryRole = searchParams?.get("role") as
-    | "owner"
-    | "admin"
-    | "member"
-    | null;
-  const userRole = selectedEvent?.role ?? queryRole;
+  const queryRoleParam = searchParams?.get("role");
+  const queryRole: EventRole | null = isEventRole(queryRoleParam)
+    ? queryRoleParam
+    : null;
+  const userRole = selectedEvent?.role ?? queryRole ?? null;
   const isRoleResolved = !eventId || !!selectedEvent || !loadingEvents;
-  const canManageEvent = isRoleResolved && userRole !== "member";
+  const canViewEventAnalytics = isRoleResolved && canViewAnalytics(userRole);
+  const canOperateSessions = isRoleResolved && canManageSessions(userRole);
+  const canManageMemberAdds = isRoleResolved && canAddMembers(userRole);
+  const canDeleteMembers = isRoleResolved && canRemoveMembers(userRole);
+  const canChangeRoles = isRoleResolved && canAssignRoles(userRole);
+  const canChangeDefaultTime = isRoleResolved && canEditDefaults(userRole);
+  const canUseParticipation = isRoleResolved && canAccessParticipation(userRole);
+  const assignableRoles = getAssignableRolesForActor(userRole);
 
   // Live check-in via WebSocket
   const handleLiveCheckIn = useCallback((data: LiveCheckInPayload) => {
@@ -285,7 +308,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function fetchMembers() {
-      if (!eventId || !isRoleResolved || !canManageEvent) {
+      if (!eventId || !isRoleResolved || !canViewEventAnalytics) {
         setMembers([]);
         return;
       }
@@ -307,11 +330,11 @@ export default function Dashboard() {
       }
     }
     fetchMembers();
-  }, [eventId, canManageEvent, isRoleResolved]);
+  }, [eventId, canViewEventAnalytics, isRoleResolved]);
 
   useEffect(() => {
     async function fetchSessions() {
-      if (!eventId || !isRoleResolved || !canManageEvent) {
+      if (!eventId || !isRoleResolved || !canOperateSessions) {
         setSessions([]);
         return;
       }
@@ -333,11 +356,11 @@ export default function Dashboard() {
       }
     }
     fetchSessions();
-  }, [eventId, canManageEvent, isRoleResolved]);
+  }, [eventId, canOperateSessions, isRoleResolved]);
 
   useEffect(() => {
     async function fetchOverview() {
-      if (!eventId || !isRoleResolved || !canManageEvent || activeTab !== "overview") {
+      if (!eventId || !isRoleResolved || !canViewEventAnalytics || activeTab !== "overview") {
         setOverviewData(null);
         setSelectedOverviewSessionId(null);
         return;
@@ -359,7 +382,7 @@ export default function Dashboard() {
       }
     }
     fetchOverview();
-  }, [eventId, activeTab, canManageEvent, isRoleResolved]);
+  }, [eventId, activeTab, canViewEventAnalytics, isRoleResolved]);
 
   useEffect(() => {
     async function fetchAttendance() {
@@ -402,10 +425,11 @@ export default function Dashboard() {
     }
   };
 
-  const handleToggleRole = async (member: EventMember) => {
+  const handleUpdateRole = async (member: EventMember, newRole: EventRole) => {
     if (!eventId) return;
-    const newRole = member.role === "admin" ? "member" : "admin";
+    if (newRole === member.role) return;
     try {
+      setOpenRoleMenuFor(null);
       const response = await apiClient.updateMemberRole(eventId, member.id, newRole);
       if (response.error) {
         alert(`Failed to update role: ${response.error}`);
@@ -726,7 +750,7 @@ export default function Dashboard() {
           {[
             { href: "/dashboard", label: "Home", icon: Home, match: (p: string) => p === "/dashboard" },
             { href: "/events", label: "Events", icon: Calendar, match: (p: string) => p === "/events" },
-            ...(userRole === "member"
+            ...(!canUseParticipation
               ? []
               : [{
                   href: eventId ? `/participation?eventId=${eventId}` : "/participation",
@@ -810,24 +834,21 @@ export default function Dashboard() {
             </Button>
           </div>
           <div className="flex items-center gap-2">
-            <div className={`px-3 py-1.5 rounded-full text-sm font-medium text-white ${
-              userRole === "owner" ? "bg-purple-700" : userRole === "admin" ? "bg-blue-600" : "bg-green-600"
-            }`}>
-              {userRole === "owner" ? "Owner" : userRole === "admin" ? "Admin" : "Member"}
-            </div>
+            {userRole && (
+              <div className={`px-3 py-1.5 rounded-full text-sm font-medium text-white ${getRoleBadgeClass(userRole)}`}>
+                {getRoleLabel(userRole)}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Member View */}
         {userRole === "member" && eventId && (
-          <MemberDashboard
-            eventId={eventId}
-            eventName={selectedEvent?.event_name ?? ""}
-          />
+          <MemberDashboard eventId={eventId} />
         )}
 
-        {/* Admin/Owner View */}
-        {userRole !== "member" && (
+        {/* Analytics / Staff View */}
+        {userRole && userRole !== "member" && (
         <>
         {/* Summary Cards - show selected/latest session */}
         <div className="grid grid-cols-4 gap-6 mb-8">
@@ -916,32 +937,38 @@ export default function Dashboard() {
         <div className="flex gap-3 mb-8">
           {eventId && (
             <>
-              <Button
-                className="bg-primary hover:bg-primary/90"
-                onClick={() => setIsAddMemberModalOpen(true)}
-              >
-                <UserPlus className="h-4 w-4 mr-2" />
-                Add Member
-              </Button>
-              <Button
-                variant="outline"
-                className="border-primary text-primary hover:bg-primary/10 bg-transparent"
-                onClick={handleOpenCreateSession}
-                disabled={isCreatingSession}
-              >
-                <QrCode className="h-4 w-4 mr-2" />
-                Start Session
-              </Button>
-              <Button
-                variant="outline"
-                className="border-primary text-primary hover:bg-primary/10 bg-transparent"
-                onClick={handleSendInvites}
-                disabled={isSendingInvites}
-              >
-                <Mail className="h-4 w-4 mr-2" />
-                {isSendingInvites ? "Sending..." : "Send Invite Emails"}
-              </Button>
-              {(userRole === "owner" || userRole === "admin") && (
+              {canManageMemberAdds && (
+                <Button
+                  className="bg-primary hover:bg-primary/90"
+                  onClick={() => setIsAddMemberModalOpen(true)}
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Add Member
+                </Button>
+              )}
+              {canOperateSessions && (
+                <Button
+                  variant="outline"
+                  className="border-primary text-primary hover:bg-primary/10 bg-transparent"
+                  onClick={handleOpenCreateSession}
+                  disabled={isCreatingSession}
+                >
+                  <QrCode className="h-4 w-4 mr-2" />
+                  Start Session
+                </Button>
+              )}
+              {canManageMemberAdds && (
+                <Button
+                  variant="outline"
+                  className="border-primary text-primary hover:bg-primary/10 bg-transparent"
+                  onClick={handleSendInvites}
+                  disabled={isSendingInvites}
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  {isSendingInvites ? "Sending..." : "Send Invite Emails"}
+                </Button>
+              )}
+              {canChangeDefaultTime && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -977,7 +1004,7 @@ export default function Dashboard() {
               >
                 Overview
               </button>
-              {sessions.length > 0 && (
+              {canOperateSessions && sessions.length > 0 && (
                 <button
                   onClick={() => handleSelectTab("sessions")}
                   className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
@@ -1289,42 +1316,56 @@ export default function Dashboard() {
                             {formatStudentId(member.id)}
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Badge className={
-                                member.role === "owner"
-                                  ? "bg-purple-500 hover:bg-purple-600"
-                                  : member.role === "admin"
-                                  ? "bg-blue-500 hover:bg-blue-600"
-                                  : "bg-gray-500 hover:bg-gray-600"
-                              }>
-                                {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-                              </Badge>
-                              {userRole === "owner" && member.role !== "owner" && (
+                            {canChangeRoles && canEditTargetRole(userRole, member.role) ? (
+                              <div className="relative inline-block">
                                 <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleToggleRole(member);
-                                  }}
-                                  className="p-1 rounded hover:bg-gray-100 transition-colors"
-                                  title={member.role === "admin" ? "Demote to member" : "Promote to admin"}
+                                  type="button"
+                                  onClick={() =>
+                                    setOpenRoleMenuFor((current) =>
+                                      current === member.id ? null : member.id,
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                  style={{ backgroundColor: getRoleColor(member.role) }}
                                 >
-                                  <Shield className={`h-4 w-4 ${
-                                    member.role === "admin" ? "text-blue-500" : "text-gray-400"
-                                  }`} />
+                                  <span>{getRoleLabel(member.role)}</span>
+                                  <ChevronDown className="h-3.5 w-3.5" />
                                 </button>
-                              )}
-                            </div>
+                                {openRoleMenuFor === member.id && (
+                                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[10rem] overflow-hidden rounded-xl border bg-white shadow-lg">
+                                    {assignableRoles.map((role) => (
+                                      <button
+                                        key={role}
+                                        type="button"
+                                        onClick={() => handleUpdateRole(member, role)}
+                                        className="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-white transition-opacity hover:opacity-90"
+                                        style={{ backgroundColor: getRoleColor(role) }}
+                                      >
+                                        <span>{getRoleLabel(role)}</span>
+                                        {member.role === role && <span className="text-xs">Current</span>}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <Badge className={`${getRoleBadgeClass(member.role)} text-white`}>
+                                {getRoleLabel(member.role)}
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
-                            <button
-                              onClick={(e) =>
-                                handleDeleteMemberClick(member, e)
-                              }
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full bg-red-500 hover:bg-red-600 text-white"
-                              aria-label={`Remove ${member.first_name} ${member.last_name}`}
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
+                            {canDeleteMembers && (
+                              <button
+                                onClick={(e) =>
+                                  handleDeleteMemberClick(member, e)
+                                }
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full bg-red-500 hover:bg-red-600 text-white"
+                                aria-label={`Remove ${member.first_name} ${member.last_name}`}
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))
@@ -1541,11 +1582,15 @@ export default function Dashboard() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <StatusDropdown
-                              record={record}
-                              updating={updatingStatusFor === record.user_id}
-                              onStatusChange={handleStatusChange}
-                            />
+                            {canOperateSessions ? (
+                              <StatusDropdown
+                                record={record}
+                                updating={updatingStatusFor === record.user_id}
+                                onStatusChange={handleStatusChange}
+                              />
+                            ) : (
+                              getStatusBadge(record.status)
+                            )}
                           </TableCell>
                           <TableCell>
                             {record.check_in_time
@@ -1568,7 +1613,7 @@ export default function Dashboard() {
       </main>
 
       {/* Add Member Modal */}
-      {eventId && (
+      {eventId && canManageMemberAdds && (
         <AddMemberModal
           isOpen={isAddMemberModalOpen}
           onClose={() => setIsAddMemberModalOpen(false)}
@@ -1584,39 +1629,47 @@ export default function Dashboard() {
         sessionId={activeSessionId}
       />
 
-      <CreateSessionModal
-        isOpen={isCreateSessionModalOpen}
-        onClose={() => setIsCreateSessionModalOpen(false)}
-        onCreate={handleCreateSession}
-        isCreating={isCreatingSession}
-      />
+      {canOperateSessions && (
+        <CreateSessionModal
+          isOpen={isCreateSessionModalOpen}
+          onClose={() => setIsCreateSessionModalOpen(false)}
+          onCreate={handleCreateSession}
+          isCreating={isCreatingSession}
+        />
+      )}
 
-      <EditSessionStartTimeModal
-        isOpen={isEditStartTimeModalOpen}
-        onClose={() => setIsEditStartTimeModalOpen(false)}
-        onSave={handleUpdateSessionStartTime}
-        isSaving={isUpdatingStartTime}
-        sessionNumber={
-          sessions.find((s) => s.id === selectedSessionId)?.sequence_number ?? 0
-        }
-        currentStartTime={
-          sessions.find((s) => s.id === selectedSessionId)?.start_time ?? null
-        }
-      />
+      {canOperateSessions && (
+        <EditSessionStartTimeModal
+          isOpen={isEditStartTimeModalOpen}
+          onClose={() => setIsEditStartTimeModalOpen(false)}
+          onSave={handleUpdateSessionStartTime}
+          isSaving={isUpdatingStartTime}
+          sessionNumber={
+            sessions.find((s) => s.id === selectedSessionId)?.sequence_number ?? 0
+          }
+          currentStartTime={
+            sessions.find((s) => s.id === selectedSessionId)?.start_time ?? null
+          }
+        />
+      )}
 
-      <DefaultStartTimeModal
-        isOpen={isDefaultStartTimeModalOpen}
-        onClose={() => setIsDefaultStartTimeModalOpen(false)}
-        onSave={handleUpdateDefaultStartTime}
-        currentDefaultTime={selectedEvent?.default_start_time ?? null}
-      />
+      {canChangeDefaultTime && (
+        <DefaultStartTimeModal
+          isOpen={isDefaultStartTimeModalOpen}
+          onClose={() => setIsDefaultStartTimeModalOpen(false)}
+          onSave={handleUpdateDefaultStartTime}
+          currentDefaultTime={selectedEvent?.default_start_time ?? null}
+        />
+      )}
 
       {/* Camera Check-In Modal */}
-      <CheckInModal
-        isOpen={isCheckInModalOpen}
-        onClose={() => setIsCheckInModalOpen(false)}
-        sessionId={selectedSessionId}
-      />
+      {canOperateSessions && (
+        <CheckInModal
+          isOpen={isCheckInModalOpen}
+          onClose={() => setIsCheckInModalOpen(false)}
+          sessionId={selectedSessionId}
+        />
+      )}
 
       {/* Delete Member Confirmation */}
       <DeleteConfirmDialog
