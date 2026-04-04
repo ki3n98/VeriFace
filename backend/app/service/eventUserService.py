@@ -62,6 +62,9 @@ class EventUserService:
 
     def get_managed_events(self, user_id: int):
         return self.__EventUserRepository.get_managed_events(user_id=user_id)
+
+    def get_all_user_events(self, user_id: int):
+        return self.__EventUserRepository.get_all_user_events(user_id=user_id)
         
 
     def get_event(self, user_id:int) -> List[EventOutput]:

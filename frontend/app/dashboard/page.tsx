@@ -53,6 +53,7 @@ import { EditSessionStartTimeModal } from "@/app/dashboard/components/EditSessio
 import { DefaultStartTimeModal } from "@/app/dashboard/components/DefaultStartTimeModal";
 import { CheckInModal } from "@/app/dashboard/components/CheckInModal";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
+import { MemberDashboard } from "@/app/dashboard/components/MemberDashboard";
 import { StatusDropdown } from "@/app/dashboard/components/StatusDropdown";
 import { useSessionWebSocket } from "@/lib/hooks/useWebSocket";
 import { X, Shield, Camera, Clock } from "lucide-react";
@@ -81,18 +82,35 @@ interface AttendanceSummary {
   total: number;
 }
 
+interface ChartTooltipEntry {
+  color: string;
+  name: string;
+  value: number;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: ChartTooltipEntry[];
+  label?: string | number;
+}
+
+interface LiveCheckInPayload {
+  user_id: number;
+  check_in_time: string | null;
+}
+
 const COLORS = {
   present: "hsl(142, 71%, 45%)",
   late: "hsl(38, 92%, 50%)",
   absent: "hsl(0, 84%, 60%)",
 };
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
         <p className="font-medium mb-2">{label}</p>
-        {payload.map((entry: any, index: number) => (
+        {payload.map((entry, index: number) => (
           <div key={index} className="flex items-center gap-2 text-sm">
             <div
               className="w-3 h-3 rounded-full"
@@ -180,7 +198,11 @@ export default function Dashboard() {
   const eventId = searchParams?.get("eventId")
     ? parseInt(searchParams.get("eventId")!, 10)
     : null;
-  const { events, refetch: refetchEvents } = useEvents();
+  const {
+    events,
+    loading: loadingEvents,
+    refetch: refetchEvents,
+  } = useEvents();
   const selectedEvent = events.find((e) => e.id === eventId);
 
   useEffect(() => {
@@ -188,10 +210,17 @@ export default function Dashboard() {
       localStorage.setItem("lastEventId", String(eventId));
     }
   }, [eventId]);
-  const userRole = searchParams?.get("role") as "owner" | "admin" | null;
+  const queryRole = searchParams?.get("role") as
+    | "owner"
+    | "admin"
+    | "member"
+    | null;
+  const userRole = selectedEvent?.role ?? queryRole;
+  const isRoleResolved = !eventId || !!selectedEvent || !loadingEvents;
+  const canManageEvent = isRoleResolved && userRole !== "member";
 
   // Live check-in via WebSocket
-  const handleLiveCheckIn = useCallback((data: any) => {
+  const handleLiveCheckIn = useCallback((data: LiveCheckInPayload) => {
     // Update the attendance list — change user's status to "present"
     setAttendance((prev) =>
       prev.map((record) =>
@@ -256,7 +285,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function fetchMembers() {
-      if (!eventId) {
+      if (!eventId || !isRoleResolved || !canManageEvent) {
         setMembers([]);
         return;
       }
@@ -278,11 +307,11 @@ export default function Dashboard() {
       }
     }
     fetchMembers();
-  }, [eventId]);
+  }, [eventId, canManageEvent, isRoleResolved]);
 
   useEffect(() => {
     async function fetchSessions() {
-      if (!eventId) {
+      if (!eventId || !isRoleResolved || !canManageEvent) {
         setSessions([]);
         return;
       }
@@ -304,11 +333,11 @@ export default function Dashboard() {
       }
     }
     fetchSessions();
-  }, [eventId]);
+  }, [eventId, canManageEvent, isRoleResolved]);
 
   useEffect(() => {
     async function fetchOverview() {
-      if (!eventId || activeTab !== "overview") {
+      if (!eventId || !isRoleResolved || !canManageEvent || activeTab !== "overview") {
         setOverviewData(null);
         setSelectedOverviewSessionId(null);
         return;
@@ -330,7 +359,7 @@ export default function Dashboard() {
       }
     }
     fetchOverview();
-  }, [eventId, activeTab]);
+  }, [eventId, activeTab, canManageEvent, isRoleResolved]);
 
   useEffect(() => {
     async function fetchAttendance() {
@@ -775,13 +804,24 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-2">
             <div className={`px-3 py-1.5 rounded-full text-sm font-medium text-white ${
-              userRole === "owner" ? "bg-purple-700" : "bg-blue-600"
+              userRole === "owner" ? "bg-purple-700" : userRole === "admin" ? "bg-blue-600" : "bg-green-600"
             }`}>
-              {userRole === "owner" ? "Owner" : "Admin"}
+              {userRole === "owner" ? "Owner" : userRole === "admin" ? "Admin" : "Member"}
             </div>
           </div>
         </div>
 
+        {/* Member View */}
+        {userRole === "member" && eventId && (
+          <MemberDashboard
+            eventId={eventId}
+            eventName={selectedEvent?.event_name ?? ""}
+          />
+        )}
+
+        {/* Admin/Owner View */}
+        {userRole !== "member" && (
+        <>
         {/* Summary Cards - show selected/latest session */}
         <div className="grid grid-cols-4 gap-6 mb-8">
           <Card>
@@ -1515,6 +1555,8 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+        )}
+      </>
         )}
       </main>
 

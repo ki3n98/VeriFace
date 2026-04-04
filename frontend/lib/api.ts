@@ -344,6 +344,26 @@ class ApiClient {
     }>("/protected/session/getEventAttendanceOverview", { event_id: eventId });
   }
 
+  async getMyAttendance(eventId: number) {
+    return this.post<{
+      success: boolean;
+      sessions: Array<{
+        session_id: number;
+        sequence_number: number;
+        start_time: string | null;
+        status: string;
+        check_in_time: string | null;
+      }>;
+      summary: {
+        total_sessions: number;
+        present: number;
+        late: number;
+        absent: number;
+        attendance_rate: number;
+      };
+    }>("/protected/session/getMyAttendance", { event_id: eventId });
+  }
+
   async updateAttendanceStatus(
     userId: number,
     sessionId: number,
