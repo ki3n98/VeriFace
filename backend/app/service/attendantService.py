@@ -65,6 +65,26 @@ class AttendanceService:
         return {"attendance": records, "summary": summary}
     
 
+    def get_user_attendance_for_event(self, user_id: int, event_id: int) -> dict:
+        """Return a user's attendance across all sessions of an event with summary stats."""
+        sessions = self.__repo.get_user_attendance_for_event(user_id, event_id)
+        total = len(sessions)
+        present = sum(1 for s in sessions if s["status"] == "present")
+        late = sum(1 for s in sessions if s["status"] == "late")
+        absent = sum(1 for s in sessions if s["status"] == "absent")
+        attendance_rate = round(((present + late) / total) * 100, 1) if total > 0 else 0.0
+
+        return {
+            "sessions": sessions,
+            "summary": {
+                "total_sessions": total,
+                "present": present,
+                "late": late,
+                "absent": absent,
+                "attendance_rate": attendance_rate,
+            },
+        }
+
     def check_in_with_embedding(
         self,
         session_id: int,

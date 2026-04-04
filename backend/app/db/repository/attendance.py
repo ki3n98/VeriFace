@@ -278,6 +278,33 @@ class AttendanceRepository(BaseRepository):
             },
         }
 
+    def get_user_attendance_for_event(self, user_id: int, event_id: int) -> list[dict]:
+        """Return all attendance records for a specific user across all sessions of an event."""
+        rows = (
+            self.session.query(
+                Attendance.session_id,
+                SessionModel.sequence_number,
+                SessionModel.start_time,
+                Attendance.status,
+                Attendance.check_in_time,
+            )
+            .join(SessionModel, SessionModel.id == Attendance.session_id)
+            .filter(SessionModel.event_id == event_id)
+            .filter(Attendance.user_id == user_id)
+            .order_by(SessionModel.sequence_number)
+            .all()
+        )
+        return [
+            {
+                "session_id": r.session_id,
+                "sequence_number": r.sequence_number,
+                "start_time": r.start_time,
+                "status": r.status.value if hasattr(r.status, "value") else r.status,
+                "check_in_time": r.check_in_time,
+            }
+            for r in rows
+        ]
+
     def delete_by_session_id(self, session_id:int) -> int:
         """Delete all attended records by session_id. Return counts deleted."""
         deleted = (

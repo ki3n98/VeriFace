@@ -108,6 +108,36 @@ async def update_session_start_time(
         raise
 
 
+@sessionRouter.post("/getMyAttendance")
+async def get_my_attendance(
+    body: EventIdRequest,
+    user: UserOutput = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> dict:
+    """Return the current user's attendance across all sessions of an event."""
+    try:
+        if not check_permission(
+            user_id=user.id,
+            event_id=body.event_id,
+            session=session,
+            required_role="member",
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Current user does not have permission to view this event.",
+            )
+
+        result = AttendanceService(session=session).get_user_attendance_for_event(
+            user_id=user.id, event_id=body.event_id
+        )
+        return {"success": True, **result}
+    except HTTPException:
+        raise
+    except Exception as error:
+        print(error)
+        raise error
+
+
 @sessionRouter.post("/getSessions")
 async def get_sessions(
     session_data: SessionInCreate,
@@ -119,6 +149,7 @@ async def get_sessions(
             user_id=user.id,
             event_id=session_data.event_id,
             session=session,
+            required_role="member",
         ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

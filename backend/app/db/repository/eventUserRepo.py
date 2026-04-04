@@ -93,6 +93,16 @@ class EventUserRepository(BaseRepository):
         )
         return rows
 
+    def get_all_user_events(self, user_id: int) -> List[Tuple[Event, str]]:
+        """Return ALL events where user has any role, with their role."""
+        rows = (
+            self.session.query(Event, EventUser.role)
+            .join(EventUser, Event.id == EventUser.event_id)
+            .filter(EventUser.user_id == user_id)
+            .all()
+        )
+        return rows
+
     def get_users_from_event(self, event_id: int, exclude_creator: bool = True) -> List[MemberWithRole]:
         """Return users in the event with their roles. By default excludes the event creator (owner) from attendance list."""
         event = self.session.get(Event, event_id)

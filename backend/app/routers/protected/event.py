@@ -261,6 +261,53 @@ async def get_managed_events(
         raise error
 
 
+@eventRouter.get("/getAllUserEvents")
+async def get_all_user_events(
+    user: UserOutput = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> List[EventWithRole]:
+    """Return all events where user has any role (owner, admin, or member)."""
+    try:
+        eu_service = EventUserService(session=session)
+        all_events = eu_service.get_all_user_events(user_id=user.id)
+
+        # Also include owned events (in case owner row doesn't exist in EventUser yet)
+        owned_events = EventService(session=session).get_events_by_owner(user_id=user.id)
+
+        result_map = {}
+        # Add owned events as owner
+        for event in owned_events:
+            result_map[event.id] = EventWithRole(
+                id=event.id,
+                event_name=event.event_name,
+                user_id=event.user_id,
+                start_date=event.start_date,
+                end_date=event.end_date,
+                location=event.location,
+                default_start_time=event.default_start_time,
+                role="owner",
+            )
+        # Add remaining events with their actual role
+        for event, role in all_events:
+            eid = event.id
+            if eid not in result_map:
+                result_map[eid] = EventWithRole(
+                    id=event.id,
+                    event_name=event.event_name,
+                    user_id=event.user_id,
+                    start_date=event.start_date,
+                    end_date=event.end_date,
+                    location=event.location,
+                    default_start_time=event.default_start_time,
+                    role=role,
+                )
+
+        return list(result_map.values())
+    except Exception as error:
+        print(error)
+        raise error
+
+
 @eventRouter.post("/{event_id}/updateMemberRole")
 async def update_member_role(
     event_id: int,

@@ -8,7 +8,7 @@ export interface Event {
   end_date?: string
   location?: string
   user_id?: number
-  role: 'owner' | 'admin'
+  role: 'owner' | 'admin' | 'member'
   default_start_time?: string | null  // "14:30:00" - applied to new sessions
 }
 
@@ -22,7 +22,7 @@ export function useEvents() {
       setLoading(true)
       setError(null)
 
-      const response = await apiClient.get<Event[]>('/protected/event/getManagedEvents')
+      const response = await apiClient.get<Event[]>('/protected/event/getAllUserEvents')
 
       if (response.error) {
         setError(response.error)
@@ -38,7 +38,7 @@ export function useEvents() {
 
   const refetch = async () => {
     setLoading(true)
-    const response = await apiClient.get<Event[]>('/protected/event/getManagedEvents')
+    const response = await apiClient.get<Event[]>('/protected/event/getAllUserEvents')
 
     if (response.error) {
       setError(response.error)

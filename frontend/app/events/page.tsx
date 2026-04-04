@@ -213,9 +213,11 @@ export default function EventsPage() {
                 <span className={`absolute top-4 left-4 text-xs font-medium px-2 py-1 rounded-full ${
                   event.role === "owner"
                     ? "bg-purple-100 text-purple-700"
-                    : "bg-blue-100 text-blue-700"
+                    : event.role === "admin"
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-green-100 text-green-700"
                 }`}>
-                  {event.role === "owner" ? "Owner" : "Admin"}
+                  {event.role === "owner" ? "Owner" : event.role === "admin" ? "Admin" : "Member"}
                 </span>
 
                 {/* Event Image Placeholder */}
