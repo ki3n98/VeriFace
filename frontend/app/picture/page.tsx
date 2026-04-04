@@ -329,6 +329,10 @@ export default function PicturePage() {
         showWarning("Get closer to the camera");
         if (currentPhase === "capture") pauseCapture();
         return;
+      } else if (faceWidth > 280) {
+        showWarning("Too close — move back a little");
+        if (currentPhase === "capture") pauseCapture();
+        return;
       }
 
       if (currentPhase === "validating") {

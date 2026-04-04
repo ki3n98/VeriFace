@@ -417,7 +417,7 @@ export default function UserSettingsPage() {
             <ScanFace className="h-5 w-5 text-primary" />
             <CardTitle>Face Data</CardTitle>
           </div>
-          <CardDescription>Reset your stored face embedding and re-scan</CardDescription>
+          <CardDescription></CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
