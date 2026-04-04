@@ -726,7 +726,14 @@ export default function Dashboard() {
           {[
             { href: "/dashboard", label: "Home", icon: Home, match: (p: string) => p === "/dashboard" },
             { href: "/events", label: "Events", icon: Calendar, match: (p: string) => p === "/events" },
-            { href: eventId ? `/participation?eventId=${eventId}` : "/participation", label: "Participation", icon: Users, match: (p: string) => p?.startsWith("/participation") },
+            ...(userRole === "member"
+              ? []
+              : [{
+                  href: eventId ? `/participation?eventId=${eventId}` : "/participation",
+                  label: "Participation",
+                  icon: Users,
+                  match: (p: string) => p?.startsWith("/participation"),
+                }]),
             { href: "/settings", label: "Settings", icon: Cog, match: (p: string) => p?.startsWith("/settings") },
           ].map(({ href, label, icon: Icon, match }) => (
             <Link

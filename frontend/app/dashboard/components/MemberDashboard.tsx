@@ -12,21 +12,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
+  CheckCircle,
+  Clock,
+  XCircle,
+  TrendingUp,
+} from "lucide-react";
+import {
+  Cell,
   Legend,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart,
   Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
-import { CheckCircle, Clock, XCircle, TrendingUp } from "lucide-react";
 import { apiClient } from "@/lib/api";
 
 interface MemberDashboardProps {
   eventId: number;
-  eventName: string;
 }
 
 interface SessionRecord {
@@ -45,34 +49,41 @@ interface Summary {
   attendance_rate: number;
 }
 
-const COLORS = {
-  present: "hsl(142, 71%, 45%)",
-  late: "hsl(38, 92%, 50%)",
-  absent: "hsl(0, 84%, 60%)",
-};
+interface AttendancePoint {
+  sessionId: number;
+  sequenceNumber: number;
+  dateLabel: string;
+  fullDateTime: string;
+  statusValue: number;
+  statusLabel: string;
+  checkInLabel: string;
+}
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
-        <p className="font-medium mb-2">{label}</p>
-        {payload.map((entry: any, index: number) => (
-          <div key={index} className="flex items-center gap-2 text-sm">
-            <div
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: entry.color }}
-            />
-            <span className="capitalize">{entry.name}:</span>
-            <span className="font-medium">{entry.value}</span>
-          </div>
-        ))}
-      </div>
-    );
+interface ChartTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    payload: AttendancePoint;
+  }>;
+}
+
+function StatusTooltip({ active, payload }: ChartTooltipProps) {
+  if (!active || !payload?.length) {
+    return null;
   }
-  return null;
-};
 
-export function MemberDashboard({ eventId, eventName }: MemberDashboardProps) {
+  const point = payload[0].payload;
+
+  return (
+    <div className="rounded-lg border bg-white p-3 shadow-lg">
+      <p className="font-medium">Session {point.sequenceNumber}</p>
+      <p className="text-sm text-muted-foreground">{point.fullDateTime}</p>
+      <p className="mt-2 text-sm">{point.statusLabel}</p>
+      <p className="text-sm text-muted-foreground">{point.checkInLabel}</p>
+    </div>
+  );
+}
+
+export function MemberDashboard({ eventId }: MemberDashboardProps) {
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,13 +109,56 @@ export function MemberDashboard({ eventId, eventName }: MemberDashboardProps) {
     );
   }
 
-  const latestSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
+  const formatDateTime = (dateStr: string | null, fallback = "—") => {
+    if (!dateStr) return fallback;
+    const date = new Date(dateStr);
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
 
-  const chartData = sessions.map((s) => ({
-    name: `Session ${s.sequence_number}`,
-    present: s.status === "present" ? 1 : 0,
-    late: s.status === "late" ? 1 : 0,
-    absent: s.status === "absent" ? 1 : 0,
+  const orderedSessions = [...sessions].sort((a, b) => {
+    const aTime = a.start_time ? new Date(a.start_time).getTime() : null;
+    const bTime = b.start_time ? new Date(b.start_time).getTime() : null;
+
+    if (aTime !== null && bTime !== null && aTime !== bTime) {
+      return aTime - bTime;
+    }
+
+    if (aTime !== null && bTime === null) {
+      return -1;
+    }
+
+    if (aTime === null && bTime !== null) {
+      return 1;
+    }
+
+    return a.sequence_number - b.sequence_number;
+  });
+
+  const formatDateOnly = (dateStr: string | null) => {
+    if (!dateStr) return `Session`;
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const attendancePoints: AttendancePoint[] = orderedSessions.map((session) => ({
+    sessionId: session.session_id,
+    sequenceNumber: session.sequence_number,
+    dateLabel: formatDateOnly(session.start_time),
+    fullDateTime: formatDateTime(session.start_time, "No scheduled time"),
+    statusValue: session.status === "absent" ? 0 : 1,
+    statusLabel: session.status === "absent" ? "Absent" : "Present",
+    checkInLabel: session.check_in_time
+      ? `Checked in at ${formatDateTime(session.check_in_time)}`
+      : "No check-in recorded",
   }));
 
   const statusBadge = (status: string) => {
@@ -118,18 +172,6 @@ export function MemberDashboard({ eventId, eventName }: MemberDashboardProps) {
       default:
         return <Badge>{status}</Badge>;
     }
-  };
-
-  const formatDateTime = (dateStr: string | null) => {
-    if (!dateStr) return "—";
-    const date = new Date(dateStr);
-    return date.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
   };
 
   return (
@@ -175,53 +217,44 @@ export function MemberDashboard({ eventId, eventName }: MemberDashboardProps) {
         </div>
       </div>
 
-      {/* Latest Session Status */}
-      {latestSession && (
+      {/* Attendance Graph */}
+      {attendancePoints.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Latest Session</CardTitle>
+            <CardTitle className="text-lg">Attendance Graph</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Session {latestSession.sequence_number}
-                  {latestSession.start_time && ` — ${formatDateTime(latestSession.start_time)}`}
-                </p>
-                <div className="mt-2">{statusBadge(latestSession.status)}</div>
-              </div>
-              <div className="text-right">
-                {latestSession.check_in_time ? (
-                  <p className="text-sm text-muted-foreground">
-                    Checked in at {formatDateTime(latestSession.check_in_time)}
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Not checked in</p>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Attendance Trend Chart */}
-      {chartData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Attendance Trend</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" fontSize={12} />
-                <YAxis allowDecimals={false} domain={[0, 1]} ticks={[0, 1]} />
-                <Tooltip content={<CustomTooltip />} />
+            <ResponsiveContainer width="100%" height={220}>
+              <ScatterChart margin={{ top: 16, right: 16, bottom: 16, left: 0 }}>
+                <XAxis
+                  type="category"
+                  dataKey="dateLabel"
+                  name="Date"
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis
+                  type="number"
+                  dataKey="statusValue"
+                  domain={[-0.25, 1.25]}
+                  ticks={[0, 1]}
+                  tickFormatter={(value) => (value === 0 ? "Absent" : "Present")}
+                  width={70}
+                />
+                <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<StatusTooltip />} />
                 <Legend />
-                <Bar dataKey="present" fill={COLORS.present} name="Present" stackId="a" />
-                <Bar dataKey="late" fill={COLORS.late} name="Late" stackId="a" />
-                <Bar dataKey="absent" fill={COLORS.absent} name="Absent" stackId="a" />
-              </BarChart>
+                <Scatter name="Attendance" data={attendancePoints} fill="hsl(142, 71%, 45%)">
+                  {attendancePoints.map((point) => (
+                    <Cell
+                      key={point.sessionId}
+                      fill={
+                        point.statusValue === 0
+                          ? "hsl(0, 84%, 60%)"
+                          : "hsl(142, 71%, 45%)"
+                      }
+                    />
+                  ))}
+                </Scatter>
+              </ScatterChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
@@ -233,7 +266,7 @@ export function MemberDashboard({ eventId, eventName }: MemberDashboardProps) {
           <CardTitle className="text-lg">Attendance History</CardTitle>
         </CardHeader>
         <CardContent>
-          {sessions.length === 0 ? (
+          {orderedSessions.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">
               No sessions recorded yet.
             </p>
@@ -248,7 +281,7 @@ export function MemberDashboard({ eventId, eventName }: MemberDashboardProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sessions.map((session) => (
+                {orderedSessions.map((session) => (
                   <TableRow key={session.session_id}>
                     <TableCell className="font-medium">
                       Session {session.sequence_number}

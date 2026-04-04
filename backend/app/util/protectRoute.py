@@ -1,5 +1,6 @@
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError
 from typing import Annotated, Union
 from app.core.security.authHandler import AuthHandler
 from app.service.userService import UserService
@@ -42,6 +43,12 @@ def get_current_user(
                 email = user.email,
                 avatar_url = user.avatar_url
             )
+        except OperationalError as error:
+            print(error)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database temporarily unavailable"
+            ) from error
         except Exception as error:
             print(error)
             raise error
