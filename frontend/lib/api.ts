@@ -399,6 +399,10 @@ class ApiClient {
     return this.post<any>("/protected/uploadPictureMulti", formData);
   }
 
+  async resetEmbedding() {
+    return this.request<void>("/protected/embedding", { method: "DELETE" });
+  }
+
   async checkIn(sessionId: number, imageFile: File) {
     const formData = new FormData();
     formData.append("upload_image", imageFile);

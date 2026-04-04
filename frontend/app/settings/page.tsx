@@ -8,7 +8,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { User, Palette, Upload } from "lucide-react";
+import { User, Palette, Upload, ScanFace } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
@@ -45,6 +45,9 @@ export default function UserSettingsPage() {
   const [newLastName, setNewLastName] = useState("");
   const [nameStatus, setNameStatus] = useState<"idle" | "saving" | "error">("idle");
   const [nameError, setNameError] = useState("");
+
+  // Face reset state
+  const [faceResetStatus, setFaceResetStatus] = useState<"idle" | "resetting" | "error">("idle");
 
   // Email edit state
   const [emailEditMode, setEmailEditMode] = useState(false);
@@ -175,6 +178,18 @@ export default function UserSettingsPage() {
       setEmailStatus("sent");
       setEmailStatusMsg(res.data?.message ?? "Verification email sent. Check your inbox.");
       setNewEmail("");
+    }
+  }
+
+  // --- Face reset ---
+
+  async function handleResetFace() {
+    setFaceResetStatus("resetting");
+    const res = await apiClient.resetEmbedding();
+    if (res.error) {
+      setFaceResetStatus("error");
+    } else {
+      router.push("/picture");
     }
   }
 
@@ -392,6 +407,38 @@ export default function UserSettingsPage() {
 
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Face Data Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <ScanFace className="h-5 w-5 text-primary" />
+            <CardTitle>Face Data</CardTitle>
+          </div>
+          <CardDescription>Reset your stored face embedding and re-scan</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium">Rescan face</div>
+              <div className="text-sm text-gray-500">
+                Clears your saved face data and takes you through setup again
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleResetFace}
+              disabled={faceResetStatus === "resetting"}
+              className="text-sm bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 disabled:opacity-50"
+            >
+              {faceResetStatus === "resetting" ? "Resetting..." : "Reset & Rescan"}
+            </button>
+          </div>
+          {faceResetStatus === "error" && (
+            <p className="text-xs text-red-500 mt-2">Something went wrong. Please try again.</p>
+          )}
         </CardContent>
       </Card>
 

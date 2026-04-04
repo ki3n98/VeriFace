@@ -132,6 +132,17 @@ async def check_occlusion(
     return {"occluded": occluded, "confidence": round(conf, 3), "enabled": True}
 
 
+@protectedRouter.delete("/embedding")
+async def reset_embedding(
+    user: UserOutput = Depends(get_current_user),
+    session: Session = Depends(get_db),
+):
+    return UserService(session=session).update_user_by_id(
+        user_id=user.id,
+        updates={"embedding": None}
+    )
+
+
 @protectedRouter.post("/uploadPictureGodmode")
 async def upload_picture_godmode(
     upload_image: UploadFile = File(...),
