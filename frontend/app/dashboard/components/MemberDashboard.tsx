@@ -28,6 +28,7 @@ import {
   YAxis,
 } from "recharts";
 import { apiClient } from "@/lib/api";
+import { formatPacificDateTime, parseBackendUtc } from "@/lib/datetime";
 
 interface MemberDashboardProps {
   eventId: number;
@@ -110,20 +111,12 @@ export function MemberDashboard({ eventId }: MemberDashboardProps) {
   }
 
   const formatDateTime = (dateStr: string | null, fallback = "—") => {
-    if (!dateStr) return fallback;
-    const date = new Date(dateStr);
-    return date.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
+    return formatPacificDateTime(dateStr, fallback);
   };
 
   const orderedSessions = [...sessions].sort((a, b) => {
-    const aTime = a.start_time ? new Date(a.start_time).getTime() : null;
-    const bTime = b.start_time ? new Date(b.start_time).getTime() : null;
+    const aTime = a.start_time ? parseBackendUtc(a.start_time).getTime() : null;
+    const bTime = b.start_time ? parseBackendUtc(b.start_time).getTime() : null;
 
     if (aTime !== null && bTime !== null && aTime !== bTime) {
       return aTime - bTime;
@@ -142,8 +135,9 @@ export function MemberDashboard({ eventId }: MemberDashboardProps) {
 
   const formatDateOnly = (dateStr: string | null) => {
     if (!dateStr) return `Session`;
-    const date = new Date(dateStr);
+    const date = parseBackendUtc(dateStr);
     return date.toLocaleDateString("en-US", {
+      timeZone: "America/Los_Angeles",
       month: "short",
       day: "numeric",
     });

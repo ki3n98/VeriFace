@@ -284,6 +284,44 @@ class ApiClient {
     );
   }
 
+  async getEventAuditLog(
+    eventId: number,
+    options?: {
+      limit?: number;
+      offset?: number;
+      category?: "add" | "remove" | "update";
+    },
+  ) {
+    const body: {
+      event_id: number;
+      limit: number;
+      offset: number;
+      category?: "add" | "remove" | "update";
+    } = {
+      event_id: eventId,
+      limit: options?.limit ?? 25,
+      offset: options?.offset ?? 0,
+    };
+    if (options?.category) {
+      body.category = options.category;
+    }
+    return this.post<{
+      success: boolean;
+      has_more: boolean;
+      entries: Array<{
+        id: number;
+        event_id: number;
+        actor_user_id: number;
+        actor_name: string;
+        action: string;
+        category: "add" | "remove" | "update" | string;
+        message: string;
+        details?: Record<string, unknown> | null;
+        created_at: string | null;
+      }>;
+    }>("/protected/event/getAuditLog", body);
+  }
+
   async removeEvent(eventId: number) {
     return this.post<{ success: boolean; message: string }>(
       "/protected/event/removeEvent",

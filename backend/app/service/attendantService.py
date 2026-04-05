@@ -3,6 +3,7 @@ from app.db.models.attendance import Attendance
 from app.db.models.session import Session as SessionModel
 from app.db.models.user import User
 from app.db.models.event_user import EventUser
+from app.util.datetime_json import utc_iso_z
 from app.util.embeddings import cosine_similarity
 
 from sqlalchemy.orm import Session
@@ -37,7 +38,9 @@ class AttendanceService:
                 detail=f"Invalid status '{status}'. Must be present, late, or absent.",
             )
 
-        att = self.__repo.update_status(user_id, session_id, status_enum)
+        att, previous_status = self.__repo.update_status(
+            user_id, session_id, status_enum
+        )
         if att is None:
             raise HTTPException(
                 status_code=404,
@@ -48,7 +51,8 @@ class AttendanceService:
             "user_id": att.user_id,
             "session_id": att.session_id,
             "status": att.status.value,
-            "check_in_time": att.check_in_time,
+            "check_in_time": utc_iso_z(att.check_in_time),
+            "previous_status": previous_status,
         }
 
     def get_event_attendance_overview(self, event_id: int) -> dict:
@@ -175,5 +179,5 @@ class AttendanceService:
             "similarity": best_sim,
             "attendance_id": attendance.id,
             "status": attendance.status,
-            "check_in_time": attendance.check_in_time,
+            "check_in_time": utc_iso_z(attendance.check_in_time),
         }

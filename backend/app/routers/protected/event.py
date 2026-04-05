@@ -4,7 +4,10 @@ from app.util.protectRoute import get_current_user
 from app.util.permission import check_permission, get_event_role, can_assign_role
 from app.util.csv_processor import validate_csv_file, parse_and_validate_csv
 from app.db.schema.user import UserOutput
-from app.db.schema.event import EventInCreate, EventToRemove, EventId, EventOutput, EventWithRole, InviteEmailResponse, UpdateDefaultStartTimeRequest
+from app.db.schema.event import EventInCreate, EventToRemove, EventId, EventOutput, EventWithRole, InviteEmailResponse, UpdateDefaultStartTimeRequest, GetAuditLogRequest
+from app.db.schema.event_audit import AuditLogEntryOutput, GetAuditLogResponse
+from app.db.models.user import User
+from app.service.eventAuditService import EventAuditService, try_log_event_action
 from app.db.schema.EventUser import EventUserCreate, EventUserRemove, MemberAddRequest, MemberRemoveRequest, RoleUpdateRequest, MemberWithRole
 from app.db.schema.user import UserInCreate
 from app.db.schema.csv import CSVUploadSuccess, CSVUploadFailure, CSVRowError
@@ -58,11 +61,37 @@ async def update_default_start_time(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Current user does not have permission to modify this event.",
             )
-        event = EventService(session=session).update_default_start_time(
+        event_service = EventService(session=session)
+        previous = event_service.get_event_by_id(body.event_id)
+        old_time = previous.default_start_time
+
+        event = event_service.update_default_start_time(
             event_id=body.event_id,
             default_start_time=body.default_start_time,
         )
-        return EventOutput.model_validate(event)
+        new_out = EventOutput.model_validate(event)
+
+        def _fmt_time(t) -> str:
+            if t is None:
+                return "not set"
+            return t.strftime("%H:%M")
+
+        try_log_event_action(
+            session,
+            event_id=body.event_id,
+            actor_user_id=user.id,
+            action="default_start_time_changed",
+            category="update",
+            message=(
+                f"Changed default session start time from {_fmt_time(old_time)} "
+                f"to {_fmt_time(new_out.default_start_time)}"
+            ),
+            details={
+                "previous": _fmt_time(old_time),
+                "new": _fmt_time(new_out.default_start_time),
+            },
+        )
+        return new_out
     except HTTPException:
         raise
     except Exception as error:
@@ -446,6 +475,42 @@ async def upload_users_csv(
         )
 
 
+@eventRouter.post("/getAuditLog", response_model=GetAuditLogResponse)
+async def get_audit_log(
+    body: GetAuditLogRequest,
+    user: UserOutput = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> GetAuditLogResponse:
+    """Moderators and above: admin action log for an event."""
+    try:
+        if not check_permission(
+            user_id=user.id,
+            event_id=body.event_id,
+            session=session,
+            required_role="moderator",
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Current user does not have permission to view this audit log.",
+            )
+        rows, has_more = EventAuditService(session=session).list_for_event(
+            body.event_id,
+            limit=body.limit,
+            offset=body.offset,
+            category=body.category,
+        )
+        return GetAuditLogResponse(
+            success=True,
+            entries=[AuditLogEntryOutput.model_validate(row) for row in rows],
+            has_more=has_more,
+        )
+    except HTTPException:
+        raise
+    except Exception as error:
+        print(error)
+        raise error
+
+
 @eventRouter.post("/{event_id}/addMember")
 async def add_single_member(
     event_id: int,
@@ -508,7 +573,21 @@ async def add_single_member(
         # Add user to event
         relationship = EventUserCreate(user_id=member_user.id, event_id=event_id)
         event_user_service.add_relationship(event_user=relationship)
-        
+
+        try_log_event_action(
+            session,
+            event_id=event_id,
+            actor_user_id=user.id,
+            action="member_added",
+            category="add",
+            message=f"Added {first_name} {last_name} ({email}) to the event",
+            details={
+                "user_id": member_user.id,
+                "email": email,
+                "is_new_user": is_new_user,
+            },
+        )
+
         return {
             "success": True,
             "message": f"Successfully added {'new' if is_new_user else 'existing'} user to event",
@@ -548,8 +627,26 @@ async def remove_member(
                 detail="You do not have permission to remove users to that event"
             )
         
+        removed_user = session.query(User).filter(User.id == member_id).first()
+        removed_name = (
+            f"{removed_user.first_name} {removed_user.last_name}".strip()
+            if removed_user
+            else f"User #{member_id}"
+        )
+        removed_email = removed_user.email if removed_user else None
+
         event_user = EventUserRemove(user_id=member_id, event_id=event_id)
         EventUserService(session=session).remove_relationship(event_user)
+
+        try_log_event_action(
+            session,
+            event_id=event_id,
+            actor_user_id=user.id,
+            action="member_removed",
+            category="remove",
+            message=f"Removed {removed_name} from the event",
+            details={"user_id": member_id, "email": removed_email},
+        )
         return {
             "success": True,
             "message": f"Member {member_id} remove from {event_id}"

@@ -1,5 +1,5 @@
-from pydantic import BaseModel, ConfigDict
-from typing import List, Union
+from pydantic import BaseModel, ConfigDict, Field
+from typing import List, Literal, Optional, Union
 from datetime import datetime, time
 
 class EventInCreate(BaseModel):
@@ -45,6 +45,13 @@ class EventToRemove(BaseModel):
 
 class EventId(BaseModel):
     id:int
+
+
+class GetAuditLogRequest(BaseModel):
+    event_id: int
+    limit: int = Field(default=25, ge=1, le=100)
+    offset: int = Field(default=0, ge=0)
+    category: Optional[Literal["add", "remove", "update"]] = None
 
 
 class EventWithRole(EventOutput):

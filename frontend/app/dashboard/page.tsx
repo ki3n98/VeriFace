@@ -41,7 +41,7 @@ import {
   Cell,
   Tooltip,
 } from "recharts";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api";
@@ -72,7 +72,12 @@ import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { MemberDashboard } from "@/app/dashboard/components/MemberDashboard";
 import { StatusDropdown } from "@/app/dashboard/components/StatusDropdown";
 import { useSessionWebSocket } from "@/lib/hooks/useWebSocket";
-import { X, Camera, Clock, ChevronDown } from "lucide-react";
+import {
+  formatPacificClock,
+  formatPacificDateTime,
+  formatPacificTime,
+} from "@/lib/datetime";
+import { X, Camera, Clock, ChevronDown, History } from "lucide-react";
 
 interface EventMember {
   id: number;
@@ -115,10 +120,46 @@ interface LiveCheckInPayload {
   check_in_time: string | null;
 }
 
+interface AuditLogEntry {
+  id: number;
+  event_id: number;
+  actor_user_id: number;
+  actor_name: string;
+  action: string;
+  category: string;
+  message: string;
+  details?: Record<string, unknown> | null;
+  created_at: string | null;
+}
+
 const COLORS = {
   present: "hsl(142, 71%, 45%)",
   late: "hsl(38, 92%, 50%)",
   absent: "hsl(0, 84%, 60%)",
+};
+
+const AUDIT_PAGE_SIZE = 25;
+
+const AUDIT_FILTER_BTN: Record<
+  "all" | "add" | "update" | "remove",
+  { on: string; off: string }
+> = {
+  all: {
+    on: "bg-primary text-primary-foreground border-primary hover:bg-primary/90 shadow-none",
+    off: "!bg-white dark:!bg-zinc-900 border-primary/45 text-foreground hover:!bg-violet-50 dark:hover:!bg-violet-950/40 hover:!text-foreground shadow-none",
+  },
+  add: {
+    on: "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 shadow-none",
+    off: "!bg-white dark:!bg-zinc-900 border-emerald-500/80 text-emerald-800 dark:text-emerald-200 hover:!bg-emerald-50 dark:hover:!bg-emerald-950/35 hover:!text-emerald-900 dark:hover:!text-emerald-100 shadow-none",
+  },
+  update: {
+    on: "bg-amber-500 text-white border-amber-500 hover:bg-amber-600 shadow-none",
+    off: "!bg-white dark:!bg-zinc-900 border-amber-500/85 text-amber-900 dark:text-amber-100 hover:!bg-amber-50 dark:hover:!bg-amber-950/40 hover:!text-amber-950 dark:hover:!text-amber-50 shadow-none",
+  },
+  remove: {
+    on: "bg-red-600 text-white border-red-600 hover:bg-red-700 shadow-none",
+    off: "!bg-white dark:!bg-zinc-900 border-red-500/85 text-red-800 dark:text-red-200 hover:!bg-red-50 dark:hover:!bg-red-950/35 hover:!text-red-900 dark:hover:!text-red-100 shadow-none",
+  },
 };
 
 const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
@@ -187,7 +228,19 @@ export default function Dashboard() {
     Array<{ id: number; event_id: number; sequence_number: number; start_time?: string | null }>
   >([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "sessions">("overview");
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "sessions" | "audit"
+  >("overview");
+  const [auditEntries, setAuditEntries] = useState<AuditLogEntry[]>([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+  const [loadingAuditMore, setLoadingAuditMore] = useState(false);
+  const [auditHasMore, setAuditHasMore] = useState(false);
+  const [auditCategoryFilter, setAuditCategoryFilter] = useState<
+    "all" | "add" | "remove" | "update"
+  >("all");
+  const [auditRefreshTrigger, setAuditRefreshTrigger] = useState(0);
+  const auditScrollRef = useRef<HTMLDivElement | null>(null);
+  const auditLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [attendanceSummary, setAttendanceSummary] =
@@ -414,6 +467,123 @@ export default function Dashboard() {
     fetchAttendance();
   }, [activeTab, selectedSessionId]);
 
+  useEffect(() => {
+    if (
+      activeTab !== "audit" ||
+      !eventId ||
+      !isRoleResolved ||
+      !canOperateSessions
+    ) {
+      return;
+    }
+    const auditEventId = eventId;
+    let cancelled = false;
+    async function fetchAuditFirstPage() {
+      setLoadingAudit(true);
+      try {
+        const response = await apiClient.getEventAuditLog(auditEventId, {
+          limit: AUDIT_PAGE_SIZE,
+          offset: 0,
+          category:
+            auditCategoryFilter === "all" ? undefined : auditCategoryFilter,
+        });
+        if (cancelled) return;
+        if (response.error) {
+          console.error("Audit log:", response.error);
+          setAuditEntries([]);
+          setAuditHasMore(false);
+        } else {
+          setAuditEntries(response.data?.entries ?? []);
+          setAuditHasMore(response.data?.has_more ?? false);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.error(e);
+          setAuditEntries([]);
+          setAuditHasMore(false);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingAudit(false);
+        }
+      }
+    }
+    fetchAuditFirstPage();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeTab,
+    eventId,
+    canOperateSessions,
+    isRoleResolved,
+    auditRefreshTrigger,
+    auditCategoryFilter,
+  ]);
+
+  const loadMoreAudit = useCallback(async () => {
+    if (
+      !eventId ||
+      !auditHasMore ||
+      loadingAuditMore ||
+      loadingAudit ||
+      activeTab !== "audit"
+    ) {
+      return;
+    }
+    setLoadingAuditMore(true);
+    try {
+      const response = await apiClient.getEventAuditLog(eventId, {
+        limit: AUDIT_PAGE_SIZE,
+        offset: auditEntries.length,
+        category:
+          auditCategoryFilter === "all" ? undefined : auditCategoryFilter,
+      });
+      if (!response.error && response.data) {
+        const page = response.data;
+        setAuditEntries((prev) => [...prev, ...page.entries]);
+        setAuditHasMore(page.has_more);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingAuditMore(false);
+    }
+  }, [
+    eventId,
+    auditHasMore,
+    loadingAuditMore,
+    loadingAudit,
+    activeTab,
+    auditEntries.length,
+    auditCategoryFilter,
+  ]);
+
+  useEffect(() => {
+    if (activeTab !== "audit" || !auditHasMore) {
+      return;
+    }
+    const rootEl = auditScrollRef.current;
+    const target = auditLoadMoreRef.current;
+    if (!rootEl || !target) {
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry?.isIntersecting) {
+          loadMoreAudit();
+        }
+      },
+      { root: rootEl, rootMargin: "80px", threshold: 0 },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [activeTab, auditHasMore, loadMoreAudit, auditEntries.length]);
+
+  const bumpAuditRefresh = () =>
+    setAuditRefreshTrigger((n) => n + 1);
+
   const handleMemberAdded = () => {
     // Refresh members list
     if (eventId) {
@@ -423,6 +593,7 @@ export default function Dashboard() {
         }
       });
     }
+    bumpAuditRefresh();
   };
 
   const handleUpdateRole = async (member: EventMember, newRole: EventRole) => {
@@ -464,6 +635,7 @@ export default function Dashboard() {
         throw new Error(response.error);
       }
       setMembers((prev) => prev.filter((m) => m.id !== memberToDelete.id));
+      bumpAuditRefresh();
     } catch (error) {
       console.error("Error removing member:", error);
       throw error;
@@ -540,6 +712,7 @@ export default function Dashboard() {
       throw new Error(response.error);
     }
     await refetchEvents();
+    bumpAuditRefresh();
   };
 
   const handleUpdateSessionStartTime = async (startTime: string | null) => {
@@ -556,6 +729,7 @@ export default function Dashboard() {
       if (!sessionsResponse.error && sessionsResponse.data?.sessions) {
         setSessions(sessionsResponse.data.sessions);
       }
+      bumpAuditRefresh();
     } catch (error) {
       console.error("Error updating start time:", error);
       alert("Failed to update start time.");
@@ -564,7 +738,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleSelectTab = (tab: "overview" | "sessions") => {
+  const handleSelectTab = (tab: "overview" | "sessions" | "audit") => {
     setActiveTab(tab);
     if (tab === "sessions" && sessions.length > 0) {
       // Auto-select latest session (highest sequence_number)
@@ -605,6 +779,7 @@ export default function Dashboard() {
           setOverviewData(overviewResponse.data);
         }
       }
+      bumpAuditRefresh();
     } catch (error) {
       console.error("Error updating status:", error);
       alert("Failed to update status. Please try again.");
@@ -1016,6 +1191,20 @@ export default function Dashboard() {
                   Sessions
                 </button>
               )}
+              {canOperateSessions && (
+                <button
+                  type="button"
+                  onClick={() => handleSelectTab("audit")}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors inline-flex items-center gap-1.5 ${
+                    activeTab === "audit"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"
+                  }`}
+                >
+                  <History className="h-3.5 w-3.5" />
+                  Audit Log
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -1400,20 +1589,8 @@ export default function Dashboard() {
                   const session = sessions.find(
                     (s) => s.id === selectedSessionId
                   );
-                  const st = session?.start_time;
-                  let display = "Not set";
-                  if (st) {
-                    try {
-                      const d = new Date(st);
-                      const h = d.getHours();
-                      const m = d.getMinutes();
-                      const period = h >= 12 ? "PM" : "AM";
-                      const hour = h % 12 || 12;
-                      display = `${hour}:${String(m).padStart(2, "0")} ${period}`;
-                    } catch {
-                      display = "Not set";
-                    }
-                  }
+                  const st = session?.start_time ?? null;
+                  const display = formatPacificClock(st);
                   return (
                     <span className="text-sm text-muted-foreground flex items-center gap-1.5">
                       <Clock className="h-3.5 w-3.5" />
@@ -1593,17 +1770,146 @@ export default function Dashboard() {
                             )}
                           </TableCell>
                           <TableCell>
-                            {record.check_in_time
-                              ? new Date(
-                                  record.check_in_time,
-                                ).toLocaleTimeString()
-                              : "—"}
+                            {formatPacificTime(record.check_in_time)}
                           </TableCell>
                         </TableRow>
                       ))
                     )}
                   </TableBody>
                 </Table>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === "audit" && canOperateSessions && (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="h-5 w-5 text-primary" />
+                  Audit Log
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Recent admin actions for this event (add/remove members,
+                  attendance changes, session and default start times). Scroll
+                  down to load older entries.
+                </p>
+                <div
+                  className="flex flex-wrap gap-2 pt-2"
+                  role="toolbar"
+                  aria-label="Filter audit log by action type"
+                >
+                  {(
+                    [
+                      { key: "all" as const, label: "All" },
+                      { key: "add" as const, label: "Added" },
+                      { key: "update" as const, label: "Updates" },
+                      { key: "remove" as const, label: "Removed" },
+                    ] as const
+                  ).map(({ key, label }) => {
+                    const on = auditCategoryFilter === key;
+                    const palette = AUDIT_FILTER_BTN[key];
+                    return (
+                    <Button
+                      key={key}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className={on ? palette.on : palette.off}
+                      onClick={() => setAuditCategoryFilter(key)}
+                    >
+                      {label}
+                    </Button>
+                    );
+                  })}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loadingAudit ? (
+                  <div className="py-12 text-center text-muted-foreground">
+                    Loading activity…
+                  </div>
+                ) : auditEntries.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground">
+                    {auditCategoryFilter === "all"
+                      ? "No logged actions yet. Actions you take from this dashboard will appear here."
+                      : "No actions in this category yet."}
+                  </div>
+                ) : (
+                  <>
+                    <div
+                      ref={auditScrollRef}
+                      className="max-h-[min(70vh,640px)] overflow-y-auto pr-1"
+                    >
+                    <ul className="space-y-3">
+                      {auditEntries.map((entry) => {
+                      const cat = entry.category?.toLowerCase() ?? "update";
+                      const rowClass =
+                        cat === "add"
+                          ? "border-l-4 border-emerald-500 bg-emerald-50/90 dark:bg-emerald-950/30"
+                          : cat === "remove"
+                            ? "border-l-4 border-red-500 bg-red-50/90 dark:bg-red-950/30"
+                            : "border-l-4 border-amber-500 bg-amber-50/90 dark:bg-amber-950/30";
+                      const dotClass =
+                        cat === "add"
+                          ? "bg-emerald-500"
+                          : cat === "remove"
+                            ? "bg-red-500"
+                            : "bg-amber-500";
+                      const when = formatPacificDateTime(entry.created_at);
+                      return (
+                        <li
+                          key={entry.id}
+                          className={`rounded-lg border border-border/60 pl-4 pr-4 py-3 shadow-sm ${rowClass}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span
+                              className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotClass}`}
+                              aria-hidden
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-foreground leading-snug">
+                                {entry.message}
+                              </p>
+                              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                <span>{when}</span>
+                                <span className="text-foreground/80">
+                                  by {entry.actor_name}
+                                </span>
+                                <Badge
+                                  variant="outline"
+                                  className="font-normal capitalize"
+                                >
+                                  {entry.action.replace(/_/g, " ")}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                    </ul>
+                    {auditHasMore && (
+                      <div
+                        ref={auditLoadMoreRef}
+                        className="flex min-h-12 items-center justify-center py-4"
+                        aria-hidden
+                      >
+                        {loadingAuditMore ? (
+                          <span className="text-sm text-muted-foreground">
+                            Loading more…
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            Scroll for older entries
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>

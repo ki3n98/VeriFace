@@ -27,6 +27,8 @@ supabase>=2.0.0
 nudenet==3.4.2
 
 # --- ML / CV (torch, torchvision & facenet-pytorch installed in Dockerfile with cu128 for sm_120 support) ---
+# Pin NumPy <2 so PyTorch wheels built against NumPy 1.x ABI work (avoids _ARRAY_API / reload subprocess warnings on Windows).
+numpy>=1.26.4,<2
 tqdm
 scipy==1.16.3
 

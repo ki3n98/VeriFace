@@ -137,10 +137,11 @@ class AttendanceRepository(BaseRepository):
 
     def update_status(
         self, user_id: int, session_id: int, status: AttendanceStatus
-    ) -> Attendance | None:
+    ) -> tuple[Attendance | None, str | None]:
         """
         Manually update a user's attendance status for a session.
         For present/late, sets check_in_time if not already set.
+        Returns (record, previous_status_value) or (None, None) if missing.
         """
         att = (
             self.session.query(Attendance)
@@ -151,8 +152,11 @@ class AttendanceRepository(BaseRepository):
             .first()
         )
         if not att:
-            return None
+            return None, None
 
+        old_status = (
+            att.status.value if hasattr(att.status, "value") else str(att.status)
+        )
         att.status = status
         if status in (AttendanceStatus.PRESENT, AttendanceStatus.LATE):
             if att.check_in_time is None:
@@ -164,7 +168,7 @@ class AttendanceRepository(BaseRepository):
 
         self.session.commit()
         self.session.refresh(att)
-        return att
+        return att, old_status
 
     def get_attendance_by_session_id(
         self, session_id: int, exclude_creator: bool = True

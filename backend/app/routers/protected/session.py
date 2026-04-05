@@ -11,9 +11,12 @@ from app.core.database import get_db
 from app.util.protectRoute import get_current_user
 from app.util.permission import check_permission
 from app.db.models.session import Session as SessionModel
+from app.db.models.user import User
+from app.service.eventAuditService import try_log_event_action
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, WebSocket, WebSocketDisconnect
 from app.util.embeddings import upload_img_to_embedding
+from app.util.datetime_json import utc_iso_z
 from app.util.ws_manager import manager
 
 
@@ -96,9 +99,33 @@ async def update_session_start_time(
                 status_code=401,
                 detail="Current user does not have permission to modify this session.",
             )
+        previous_start = session_obj.start_time
         session_obj.start_time = body.start_time
         db.commit()
         db.refresh(session_obj)
+
+        def _fmt_dt(dt: datetime | None) -> str:
+            if dt is None:
+                return "not set"
+            return dt.isoformat(timespec="minutes")
+
+        try_log_event_action(
+            db,
+            event_id=session_obj.event_id,
+            actor_user_id=user.id,
+            action="session_start_time_changed",
+            category="update",
+            message=(
+                f"Changed session {session_obj.sequence_number} start time from "
+                f"{_fmt_dt(previous_start)} to {_fmt_dt(session_obj.start_time)}"
+            ),
+            details={
+                "session_id": session_obj.id,
+                "sequence_number": session_obj.sequence_number,
+                "previous": _fmt_dt(previous_start),
+                "new": _fmt_dt(session_obj.start_time),
+            },
+        )
         return {
             "success": True,
             "session": SessionOutput.model_validate(session_obj, from_attributes=True),
@@ -279,10 +306,38 @@ async def update_attendance_status(
                 detail="Current user does not have permission to update attendance.",
             )
 
+        member_user = (
+            session.query(User).filter(User.id == body.user_id).one_or_none()
+        )
+        member_label = (
+            f"{member_user.first_name} {member_user.last_name}".strip()
+            if member_user
+            else f"User #{body.user_id}"
+        )
+
         result = AttendanceService(session=session).update_attendance_status(
             user_id=body.user_id,
             session_id=body.session_id,
             status=body.status,
+        )
+        try_log_event_action(
+            session,
+            event_id=session_obj.event_id,
+            actor_user_id=user.id,
+            action="attendance_status_changed",
+            category="update",
+            message=(
+                f"Set {member_label}'s attendance to {result['status']} "
+                f"(was {result.get('previous_status')}) in session "
+                f"{session_obj.sequence_number}"
+            ),
+            details={
+                "session_id": body.session_id,
+                "sequence_number": session_obj.sequence_number,
+                "user_id": body.user_id,
+                "previous_status": result.get("previous_status"),
+                "new_status": result["status"],
+            },
         )
         return {"success": True, **result}
     except HTTPException:
@@ -319,8 +374,11 @@ async def check_in_with_face(
             # Broadcast to dashboard clients watching this session
             # Convert datetime to string since send_json uses json.dumps
             ws_data = {**result}
-            if ws_data.get("check_in_time"):
-                ws_data["check_in_time"] = str(ws_data["check_in_time"])
+            if ws_data.get("check_in_time") is not None:
+                ct = ws_data["check_in_time"]
+                ws_data["check_in_time"] = (
+                    utc_iso_z(ct) if isinstance(ct, datetime) else str(ct)
+                )
             await manager.broadcast_to_session(session_id, {
                 "type": "checkin",
                 "data": ws_data

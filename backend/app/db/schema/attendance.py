@@ -1,7 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 from typing import Union
 from datetime import datetime
 from app.db.models.attendance import AttendanceStatus
+from app.util.datetime_json import utc_iso_z
 
 
 class UpdateAttendanceStatusRequest(BaseModel):
@@ -25,4 +26,8 @@ class AttendanceWithUser(BaseModel):
     email: str
     status: AttendanceStatus
     check_in_time: Union[datetime, None] = None
+
+    @field_serializer("check_in_time")
+    def _serialize_check_in_time(self, v: datetime | None) -> str | None:
+        return utc_iso_z(v)
 
