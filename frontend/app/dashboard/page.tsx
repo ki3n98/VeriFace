@@ -961,7 +961,7 @@ export default function Dashboard() {
         <nav className="flex-1 space-y-2">
           {[
             { href: "/dashboard", label: "Event Dashboard", icon: Home, match: (p: string) => p === "/dashboard" },
-            { href: "/events", label: eventId ? "Change Event" : "Events", icon: Calendar, match: (p: string) => p === "/events" },
+            { href: "/events", label: "Manage Events", icon: Calendar, match: (p: string) => p === "/events" },
             ...(!canUseParticipation
               ? []
               : [{

@@ -168,7 +168,7 @@ export default function EventsPage() {
 
   const navLinks = [
     { href: "/dashboard", label: "Event Dashboard", icon: Home, match: (p: string) => p === "/dashboard" },
-    { href: "/events", label: "Events", icon: Calendar, match: (p: string) => p === "/events" },
+    { href: "/events", label: "Manage Events", icon: Calendar, match: (p: string) => p === "/events" },
     ...(lastEventId ? [{ href: `/participation?eventId=${lastEventId}`, label: "Participation", icon: Users, match: (p: string) => p?.startsWith("/participation") }] : []),
     { href: "/settings", label: "Settings", icon: Cog, match: (p: string) => p?.startsWith("/settings") },
   ];

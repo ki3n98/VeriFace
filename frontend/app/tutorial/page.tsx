@@ -142,7 +142,7 @@ export default function TutorialPage() {
             },
             {
               href: "/events",
-              label: lastEventId ? "Change Event" : "Events",
+              label: "Manage Events",
               icon: Calendar,
               match: (p: string) => p === "/events",
             },

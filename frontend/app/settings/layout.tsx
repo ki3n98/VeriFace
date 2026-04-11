@@ -94,7 +94,7 @@ export default function SettingsLayout({
         <nav className="flex-1 space-y-2">
           {[
             { href: lastEventId ? `/dashboard?eventId=${lastEventId}` : "/dashboard", label: "Event Dashboard", icon: Home, match: (p: string) => p === "/dashboard" },
-            { href: "/events", label: lastEventId ? "Change Event" : "Events", icon: Calendar, match: (p: string) => p === "/events" },
+            { href: "/events", label: "Manage Events", icon: Calendar, match: (p: string) => p === "/events" },
             ...(lastEventId ? [{ href: `/participation?eventId=${lastEventId}`, label: "Participation", icon: Users, match: (p: string) => p.startsWith("/participation") }] : []),
             { href: "/settings", label: "Settings", icon: Cog, match: (p: string) => p.startsWith("/settings") },
           ].map(({ href, label, icon: Icon, match }) => (

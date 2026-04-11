@@ -200,7 +200,7 @@ export default function ParticipationPage() {
         <nav className="flex-1 space-y-2">
           {[
             { href: eventId ? `/dashboard?eventId=${eventId}` : "/dashboard", label: "Event Dashboard", icon: Home, match: (p: string) => p === "/dashboard" },
-            { href: "/events", label: eventId ? "Change Event" : "Events", icon: Calendar, match: (p: string) => p === "/events" },
+            { href: "/events", label: "Manage Events", icon: Calendar, match: (p: string) => p === "/events" },
             ...(canUseParticipation
               ? [{ href: eventId ? `/participation?eventId=${eventId}` : "/participation", label: "Participation", icon: Users, match: (p: string) => p.startsWith("/participation") }]
               : []),

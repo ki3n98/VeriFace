@@ -353,7 +353,7 @@ export default function BreakoutRoomsPage() {
             },
             {
               href: "/events",
-              label: eventId ? "Change Event" : "Events",
+              label: "Manage Events",
               icon: Calendar,
               match: (p: string) => p === "/events",
             },
