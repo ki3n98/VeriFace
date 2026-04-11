@@ -276,10 +276,20 @@ export default function PicturePage() {
         luminanceSum += 0.299 * patch.data[p] + 0.587 * patch.data[p + 1] + 0.114 * patch.data[p + 2];
       }
       const avgLuminance = luminanceSum / (patch.data.length / 4);
+      let lightingOk = true;
       if (avgLuminance < 40) {
         showWarning("Too dark — move to a brighter area");
+        lightingOk = false;
       } else if (avgLuminance > 220) {
         showWarning("Too bright — avoid direct light behind you");
+        lightingOk = false;
+      }
+      if (!lightingOk) {
+        if (currentPhase === "capture") pauseCapture();
+        else if (currentPhase === "validating") {
+          cleanFrameCountRef.current = 0;
+          setCleanProgress(0);
+        }
       }
 
       ctx.fillStyle = "rgba(0,0,0,0.18)";
@@ -360,6 +370,7 @@ export default function PicturePage() {
           return;
         }
 
+        if (!lightingOk) return;
         clearWarning();
         cleanFrameCountRef.current = Math.min(cleanFrameCountRef.current + 1, CLEAN_FRAMES_NEEDED);
         setCleanProgress(cleanFrameCountRef.current / CLEAN_FRAMES_NEEDED);
