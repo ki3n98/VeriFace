@@ -51,6 +51,11 @@ export default function ParticipationPage() {
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [latestSessionLabel, setLatestSessionLabel] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [lastEventName, setLastEventName] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLastEventName(localStorage.getItem("lastEventName"));
+  }, []);
 
   const handleLogout = () => {
     apiClient.logout();
@@ -162,7 +167,7 @@ export default function ParticipationPage() {
       >
         <Link
           href="/dashboard"
-          className="flex items-center gap-3 mb-12 cursor-pointer hover:opacity-80 transition-opacity"
+          className="flex items-center gap-3 mb-4 cursor-pointer hover:opacity-80 transition-opacity"
         >
           <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
             <img src="/logo.png" alt="VeriFace Logo" className="h-8 w-auto" />
@@ -174,10 +179,28 @@ export default function ParticipationPage() {
           )}
         </Link>
 
+        {lastEventName ? (
+          isSidebarCollapsed ? (
+            <div className="mb-6 flex justify-center overflow-hidden">
+              <span
+                className="text-xs font-medium text-white/60 truncate text-center w-full">
+                {lastEventName}
+              </span>
+            </div>
+          ) : (
+            <div className="mb-6 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
+              <p className="text-xs text-white/40 mb-0.5">Selected Event</p>
+              <p className="text-sm font-medium truncate">{lastEventName}</p>
+            </div>
+          )
+        ) : (
+          isSidebarCollapsed && <div className="mb-8" />
+        )}
+
         <nav className="flex-1 space-y-2">
           {[
-            { href: eventId ? `/dashboard?eventId=${eventId}` : "/dashboard", label: "Home", icon: Home, match: (p: string) => p === "/dashboard" },
-            { href: "/events", label: "Events", icon: Calendar, match: (p: string) => p === "/events" },
+            { href: eventId ? `/dashboard?eventId=${eventId}` : "/dashboard", label: "Event Dashboard", icon: Home, match: (p: string) => p === "/dashboard" },
+            { href: "/events", label: eventId ? "Change Event" : "Events", icon: Calendar, match: (p: string) => p === "/events" },
             ...(canUseParticipation
               ? [{ href: eventId ? `/participation?eventId=${eventId}` : "/participation", label: "Participation", icon: Users, match: (p: string) => p.startsWith("/participation") }]
               : []),
@@ -200,6 +223,7 @@ export default function ParticipationPage() {
 
         <div className="pt-4 border-t border-[var(--sidebar-border)]/30">
           <button
+            type="button"
             onClick={handleLogout}
             className="flex items-center gap-3 w-full px-4 py-2 rounded-lg text-sm font-medium opacity-90 hover:bg-red-500/20 hover:text-red-400 transition"
           >
@@ -244,6 +268,19 @@ export default function ParticipationPage() {
           />
         </Button>
 
+        {!eventId ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] text-center gap-4">
+            <Calendar className="h-12 w-12 text-muted-foreground opacity-40" />
+            <p className="text-lg font-medium text-muted-foreground">No event selected</p>
+            <p className="text-sm text-muted-foreground/70">
+              Please select an event from the{" "}
+              <Link href="/events" className="underline hover:text-foreground transition">
+                Events page
+              </Link>{" "}
+              to use participation.
+            </p>
+          </div>
+        ) : (
         <div className="max-w-[1100px] mx-auto pt-12">
           {/* Header: title + metadata grouped left */}
           <div className="mb-8">
@@ -314,6 +351,7 @@ export default function ParticipationPage() {
           />
         )}
         </div>
+        )}
       </main>
     </div>
   );

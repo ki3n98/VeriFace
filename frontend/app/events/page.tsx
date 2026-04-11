@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, X, Image as ImageIcon } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Plus, X, Image as ImageIcon, Home, Calendar, Cog, LogOut, Users } from "lucide-react";
 import { CreateEventModal } from "./components/CreateEventModal";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { useEvents } from "@/lib/hooks/useEvents";
@@ -19,21 +21,64 @@ interface EventCreateResponse {
   location?: string | null;
 }
 
+interface User {
+  first_name: string;
+  last_name: string;
+  email: string;
+  avatar_url: string | null;
+}
+
 export default function EventsPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const { events, loading, error, refetch } = useEvents();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [avatarSignedUrl, setAvatarSignedUrl] = useState<string | null>(null);
+  const [lastEventId, setLastEventId] = useState<number | null>(null);
+  const [lastEventName, setLastEventName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("lastEventId");
+    if (saved) setLastEventId(parseInt(saved, 10));
+    setLastEventName(localStorage.getItem("lastEventName"));
+  }, []);
+
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const response = await apiClient.getCurrentUser();
+        const userData = response.data?.data;
+        if (userData) {
+          setUser(userData);
+          if (userData.avatar_url) {
+            const urlRes = await apiClient.getAvatarUrl();
+            setAvatarSignedUrl(urlRes.data?.signed_url ?? null);
+          }
+        }
+      } catch {
+        // silently fail — sidebar profile is non-critical
+      } finally {
+        setLoadingUser(false);
+      }
+    }
+    fetchUser();
+  }, []);
+
+  const getInitials = (firstName: string, lastName: string) =>
+    `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
 
   const handleEventClick = (eventId: number, role: string) => {
     router.push(`/dashboard?eventId=${eventId}&role=${role}`);
   };
 
   const handleLogout = () => {
-    apiClient.logout(); // removes token from localStorage
-    router.replace("/sign-in"); // redirect to login
-    router.refresh(); // reset client state
+    apiClient.logout();
+    router.replace("/sign-in");
+    router.refresh();
   };
 
   const handleCreateEvent = async (eventData: {
@@ -49,7 +94,7 @@ export default function EventsPage() {
         {
           event_name: eventData.name,
           location: eventData.location,
-          start_date: null, // You can add date pickers later
+          start_date: null,
           end_date: null,
         },
       );
@@ -65,46 +110,31 @@ export default function EventsPage() {
         return;
       }
 
-      // Upload CSV if provided
       if (eventData.csvFile && eventId) {
         try {
-          const csvResponse = await apiClient.uploadCSV(
-            eventId,
-            eventData.csvFile,
-          );
+          const csvResponse = await apiClient.uploadCSV(eventId, eventData.csvFile);
           if (csvResponse.error) {
-            alert(
-              `Event created successfully, but CSV upload failed: ${csvResponse.error}`,
-            );
+            alert(`Event created successfully, but CSV upload failed: ${csvResponse.error}`);
           } else {
             const csvData = csvResponse.data;
             if (!csvData) {
               alert("Event created, but CSV upload returned no data.");
             } else if (csvData.success) {
-              alert(
-                `Event created and ${csvData.total_rows} members added successfully!`,
-              );
+              alert(`Event created and ${csvData.total_rows} members added successfully!`);
             } else {
-              alert(
-                `Event created, but CSV upload had errors: ${csvData.message}`,
-              );
+              alert(`Event created, but CSV upload had errors: ${csvData.message}`);
             }
           }
         } catch (csvError) {
           console.error("Error uploading CSV:", csvError);
-          alert(
-            "Event created successfully, but CSV upload failed. You can upload it later.",
-          );
+          alert("Event created successfully, but CSV upload failed. You can upload it later.");
         }
       }
 
-      // Refresh events list (if this fails, still close modal since event was created)
       try {
         await refetch();
       } catch (refetchError) {
         console.error("Error refreshing events list:", refetchError);
-        // Event was created successfully, so we still close the modal
-        // User can manually refresh the page to see the new event
       }
       setIsCreateModalOpen(false);
     } catch (error) {
@@ -130,60 +160,107 @@ export default function EventsPage() {
       await refetch();
     } catch (error) {
       console.error("Error deleting event:", error);
-      throw error; // Keep dialog open so user can retry or cancel
+      throw error;
     } finally {
       setIsDeleting(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background2 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-xl text-muted-foreground">Loading events...</div>
-        </div>
-      </div>
-    );
-  }
+  const navLinks = [
+    { href: "/dashboard", label: "Event Dashboard", icon: Home, match: (p: string) => p === "/dashboard" },
+    { href: "/events", label: "Events", icon: Calendar, match: (p: string) => p === "/events" },
+    ...(lastEventId ? [{ href: `/participation?eventId=${lastEventId}`, label: "Participation", icon: Users, match: (p: string) => p?.startsWith("/participation") }] : []),
+    { href: "/settings", label: "Settings", icon: Cog, match: (p: string) => p?.startsWith("/settings") },
+  ];
 
   return (
-    <div className="min-h-screen bg-background2">
-      {/* Header */}
-      <header className="bg-primary text-primary-foreground shadow-md">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Left: Logo + Title */}
-            <div className="flex items-center gap-3">
-              <img
-                src="/logo.png"
-                alt="VeriFace Logo"
-                className="h-10 w-auto"
-              />
-              <h1 className="text-2xl font-bold">VeriFace</h1>
-            </div>
-
-            {/* Right: Logout Button */}
-            <button
-              onClick={handleLogout}
-              className="inline-block px-5 py-2 bg-purple-700 hover:bg-white/90 hover:text-purple-900 rounded-lg transition shadow-sm"
-            >
-              Logout
-            </button>
+    <div className="flex h-screen overflow-hidden bg-background2">
+      {/* Sidebar */}
+      <aside className="bg-[var(--sidebar)] text-[var(--sidebar-foreground)] flex flex-col w-64 p-6">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-3 mb-4 cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+            <img src="/logo.png" alt="VeriFace Logo" className="h-8 w-auto" />
           </div>
+          <span className="text-xl font-bold whitespace-nowrap">VeriFace</span>
+        </Link>
+
+        {lastEventName && (
+          <div className="mb-6 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
+            <p className="text-xs text-white/40 mb-0.5">Selected Event</p>
+            <p className="text-sm font-medium truncate">{lastEventName}</p>
+          </div>
+        )}
+
+        <nav className="flex-1 space-y-2">
+          {navLinks.map(({ href, label, icon: Icon, match }) => (
+            <Link
+              key={label}
+              href={href}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                match(pathname ?? "")
+                  ? "bg-[var(--sidebar-accent)] font-medium"
+                  : "hover:bg-[var(--sidebar-accent)]/50"
+              }`}
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+              <span>{label}</span>
+            </Link>
+          ))}
+        </nav>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex items-center gap-3 w-full px-4 py-2 rounded-lg text-sm font-medium opacity-90 hover:bg-red-500/20 hover:text-red-400 transition"
+        >
+          <LogOut className="h-5 w-5 shrink-0" />
+          Logout
+        </button>
+
+        <div className="p-4 border-t border-[var(--sidebar-border)]/30 space-y-4">
+          {loadingUser ? (
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white/10 animate-pulse" />
+              <div className="flex-1">
+                <div className="h-4 bg-white/10 rounded animate-pulse mb-2" />
+                <div className="h-3 bg-white/10 rounded animate-pulse w-2/3" />
+              </div>
+            </div>
+          ) : user ? (
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10 border-2 border-white">
+                {avatarSignedUrl && <AvatarImage src={avatarSignedUrl} alt="Avatar" />}
+                <AvatarFallback className="bg-primary text-white font-semibold">
+                  {getInitials(user.first_name, user.last_name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm truncate">
+                  {user.first_name} {user.last_name}
+                </div>
+                <div className="text-xs opacity-60 truncate">{user.email}</div>
+              </div>
+            </div>
+          ) : null}
         </div>
-      </header>
+      </aside>
 
       {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
+      <main className="flex-1 p-8 overflow-y-auto">
         <div className="mb-8">
-          <h2 className="text-4xl font-bold text-foreground2 mb-2">
-            Select Event
-          </h2>
+          <h2 className="text-4xl font-bold text-foreground2 mb-2">Select Event</h2>
           <p className="text-muted-foreground">
             After logging in, users see all classes or events they belong to.
             Users can select an existing event or create a new one.
           </p>
         </div>
+
+        {loading && (
+          <div className="text-muted-foreground">Loading events...</div>
+        )}
 
         {error && (
           <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -193,17 +270,16 @@ export default function EventsPage() {
 
         {/* Events Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Event Cards */}
           {events.map((event) => (
             <Card
               key={event.id}
-              className="cursor-pointer hover:shadow-lg transition-shadow relative group"
+              className={`cursor-pointer hover:shadow-lg transition-shadow relative group ${event.id === lastEventId ? "ring-2 ring-primary" : ""}`}
               onClick={() => handleEventClick(event.id, event.role)}
             >
               <CardContent className="p-6">
-                {/* Delete button - only for owners, appears on hover */}
                 {event.role === "owner" && (
                   <button
+                    type="button"
                     onClick={(e) => handleDeleteEventClick(event.id, e)}
                     className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full bg-red-500 hover:bg-red-600 text-white"
                     aria-label="Delete event"
@@ -212,31 +288,35 @@ export default function EventsPage() {
                   </button>
                 )}
 
-                {/* Role badge */}
-                <span className={`absolute top-4 left-4 text-xs font-medium px-2 py-1 rounded-full ${getRoleSoftBadgeClass(event.role)}`}>
+                <span
+                  className={`absolute top-4 left-4 text-xs font-medium px-2 py-1 rounded-full ${getRoleSoftBadgeClass(event.role)}`}
+                >
                   {getRoleLabel(event.role)}
                 </span>
 
-                {/* Event Image Placeholder */}
                 <div className="w-full h-48 bg-muted rounded-lg mb-4 flex items-center justify-center">
                   <ImageIcon className="h-16 w-16 text-muted-foreground" />
                 </div>
 
-                {/* Event Info */}
-                <h3 className="text-xl font-semibold text-foreground2 mb-2">
-                  {event.event_name}
-                </h3>
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-xl font-semibold text-foreground2">
+                    {event.event_name}
+                  </h3>
+                  {event.id === lastEventId && (
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary text-primary-foreground whitespace-nowrap">
+                      Currently Selected
+                    </span>
+                  )}
+                </div>
                 {event.location && (
                   <p className="text-sm text-muted-foreground mb-1">
-                    <span className="font-medium">Location:</span>{" "}
-                    {event.location}
+                    <span className="font-medium">Location:</span> {event.location}
                   </p>
                 )}
               </CardContent>
             </Card>
           ))}
 
-          {/* Create Event Card */}
           <Card
             className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-dashed border-secondary/40 hover:border-secondary"
             onClick={() => setIsCreateModalOpen(true)}
@@ -258,14 +338,12 @@ export default function EventsPage() {
         </div>
       </main>
 
-      {/* Create Event Modal */}
       <CreateEventModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateEvent}
       />
 
-      {/* Delete Event Confirmation */}
       <DeleteConfirmDialog
         isOpen={eventToDelete !== null}
         onClose={() => setEventToDelete(null)}

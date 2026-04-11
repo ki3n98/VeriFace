@@ -6,7 +6,13 @@ import styles from "../sign-in/sign-in.module.css";
 import { apiClient } from "@/lib/api";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-type Phase = "checking" | "intro" | "validating" | "capture" | "uploading" | "polling";
+type Phase =
+  | "checking"
+  | "intro"
+  | "validating"
+  | "capture"
+  | "uploading"
+  | "polling";
 
 type HasEmbeddingsResponse =
   | { has_embeddings: boolean }
@@ -17,8 +23,10 @@ type HasEmbeddingsResponse =
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function coerceHasEmbeddings(data: HasEmbeddingsResponse): boolean {
   if (typeof data === "boolean") return data;
-  if (typeof (data as any)?.has_embeddings === "boolean") return (data as any).has_embeddings;
-  if (typeof (data as any)?.hasEmbeddings === "boolean") return (data as any).hasEmbeddings;
+  if (typeof (data as any)?.has_embeddings === "boolean")
+    return (data as any).has_embeddings;
+  if (typeof (data as any)?.hasEmbeddings === "boolean")
+    return (data as any).hasEmbeddings;
   if (typeof (data as any)?.ok === "boolean") return (data as any).ok;
   return false;
 }
@@ -35,7 +43,11 @@ function toErrorString(err: unknown): string {
   if ((err as any)?.error) return toErrorString((err as any).error);
   if ((err as any)?.message) return String((err as any).message);
   if ((err as any)?.msg) return String((err as any).msg);
-  try { return JSON.stringify(err); } catch { return "Something went wrong."; }
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return "Something went wrong.";
+  }
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -47,7 +59,7 @@ const DOT_R = 11;
 const CLEAN_FRAMES_NEEDED = 45; // ~1.5s at 30fps before capture starts
 const SECTOR_ANGLES = Array.from(
   { length: SECTOR_COUNT },
-  (_, i) => (i * (Math.PI * 2)) / SECTOR_COUNT - Math.PI / 2
+  (_, i) => (i * (Math.PI * 2)) / SECTOR_COUNT - Math.PI / 2,
 );
 const SECTOR_HALF = Math.PI / SECTOR_COUNT;
 
@@ -70,7 +82,9 @@ export default function PicturePage() {
   const phaseRef = useRef<Phase>("checking");
 
   const [phase, setPhase] = useState<Phase>("checking");
-  const [sectorsDone, setSectorsDone] = useState<boolean[]>(new Array(SECTOR_COUNT).fill(false));
+  const [sectorsDone, setSectorsDone] = useState<boolean[]>(
+    new Array(SECTOR_COUNT).fill(false),
+  );
   const [cleanProgress, setCleanProgress] = useState(0);
   const [warning, setWarning] = useState("");
   const [occlusionError, setOcclusionError] = useState<string | null>(null);
@@ -78,7 +92,9 @@ export default function PicturePage() {
   const [error, setError] = useState<string | null>(null);
 
   // Keep phaseRef in sync
-  useEffect(() => { phaseRef.current = phase; }, [phase]);
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
 
   const setPhaseSync = useCallback((p: Phase) => {
     phaseRef.current = p;
@@ -98,7 +114,10 @@ export default function PicturePage() {
 
   // ── Embedding check on mount ──────────────────────────────────────────────────
   async function fetchHasEmbeddings(): Promise<boolean> {
-    const res = await apiClient.post<HasEmbeddingsResponse>("/protected/model/hasEmbedding", {});
+    const res = await apiClient.post<HasEmbeddingsResponse>(
+      "/protected/model/hasEmbedding",
+      {},
+    );
     return coerceHasEmbeddings((res as any)?.data ?? (res as any));
   }
 
@@ -114,7 +133,9 @@ export default function PicturePage() {
         if (!cancelled) setPhaseSync("intro");
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Camera helpers ────────────────────────────────────────────────────────────
@@ -161,7 +182,9 @@ export default function PicturePage() {
   const captureFrame = useCallback((i: number) => {
     if (sectorsDoneRef.current[i]) return;
     // Mark sector done immediately so the scan always progresses
-    sectorsDoneRef.current = sectorsDoneRef.current.map((v, idx) => idx === i ? true : v);
+    sectorsDoneRef.current = sectorsDoneRef.current.map((v, idx) =>
+      idx === i ? true : v,
+    );
     setSectorsDone([...sectorsDoneRef.current]);
 
     const video = videoRef.current;
@@ -174,54 +197,76 @@ export default function PicturePage() {
     tmp.width = cropSize;
     tmp.height = cropSize;
     const ctx = tmp.getContext("2d")!;
-    ctx.drawImage(video, cropX, cropY, cropSize, cropSize, 0, 0, cropSize, cropSize);
+    ctx.drawImage(
+      video,
+      cropX,
+      cropY,
+      cropSize,
+      cropSize,
+      0,
+      0,
+      cropSize,
+      cropSize,
+    );
 
     const session = captureSessionRef.current;
     pendingChecksRef.current += 1;
 
-    tmp.toBlob(async (blob) => {
-      if (!blob || session !== captureSessionRef.current) {
-        pendingChecksRef.current -= 1;
-        return;
-      }
-
-      const file = new File([blob], `frame_${i}.jpg`, { type: "image/jpeg" });
-
-      try {
-        const result = await apiClient.checkOcclusion(file);
-        if (session !== captureSessionRef.current) { pendingChecksRef.current -= 1; return; }
-        const data = (result as any)?.data;
-        if (data?.enabled && data?.occluded) {
-          // Occluded — sector still counted, but frame excluded from upload
+    tmp.toBlob(
+      async (blob) => {
+        if (!blob || session !== captureSessionRef.current) {
           pendingChecksRef.current -= 1;
-        } else {
-          // Clean frame — include in upload batch
-          setOcclusionError(null);
+          return;
+        }
+
+        const file = new File([blob], `frame_${i}.jpg`, { type: "image/jpeg" });
+
+        try {
+          const result = await apiClient.checkOcclusion(file);
+          if (session !== captureSessionRef.current) {
+            pendingChecksRef.current -= 1;
+            return;
+          }
+          const data = (result as any)?.data;
+          if (data?.enabled && data?.occluded) {
+            // Occluded — sector still counted, but frame excluded from upload
+            pendingChecksRef.current -= 1;
+          } else {
+            // Clean frame — include in upload batch
+            setOcclusionError(null);
+            framesRef.current.push(file);
+            pendingChecksRef.current -= 1;
+          }
+        } catch {
+          if (session !== captureSessionRef.current) {
+            pendingChecksRef.current -= 1;
+            return;
+          }
+          // Check failed — include frame anyway
           framesRef.current.push(file);
           pendingChecksRef.current -= 1;
         }
-      } catch {
-        if (session !== captureSessionRef.current) { pendingChecksRef.current -= 1; return; }
-        // Check failed — include frame anyway
-        framesRef.current.push(file);
-        pendingChecksRef.current -= 1;
-      }
 
-      // Once all sectors are done and all checks have settled, decide what to do
-      if (
-        sectorsDoneRef.current.every((v) => v) &&
-        pendingChecksRef.current === 0 &&
-        !uploadCalledRef.current
-      ) {
-        if (framesRef.current.length < 5) {
-          setOcclusionError("Too many obstructed frames — please remove face coverings and try again");
-          resetToValidating();
-        } else {
-          uploadCalledRef.current = true;
-          doUpload();
+        // Once all sectors are done and all checks have settled, decide what to do
+        if (
+          sectorsDoneRef.current.every((v) => v) &&
+          pendingChecksRef.current === 0 &&
+          !uploadCalledRef.current
+        ) {
+          if (framesRef.current.length < 5) {
+            setOcclusionError(
+              "Too many obstructed frames — please remove face coverings and try again",
+            );
+            resetToValidating();
+          } else {
+            uploadCalledRef.current = true;
+            doUpload();
+          }
         }
-      }
-    }, "image/jpeg", 0.92);
+      },
+      "image/jpeg",
+      0.92,
+    );
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Upload all frames ─────────────────────────────────────────────────────────
@@ -243,7 +288,10 @@ export default function PicturePage() {
     const start = Date.now();
     while (Date.now() - start < 60_000) {
       const has = await fetchHasEmbeddings();
-      if (has) { router.replace("/events"); return; }
+      if (has) {
+        router.replace("/events");
+        return;
+      }
       await new Promise((r) => setTimeout(r, 1500));
     }
     setError("Embedding timed out. Please try again.");
@@ -270,10 +318,18 @@ export default function PicturePage() {
       ctx.restore();
 
       // Brightness check — sample a centre patch to avoid background skew
-      const patch = ctx.getImageData(CANVAS_W / 4, CANVAS_H / 4, CANVAS_W / 2, CANVAS_H / 2);
+      const patch = ctx.getImageData(
+        CANVAS_W / 4,
+        CANVAS_H / 4,
+        CANVAS_W / 2,
+        CANVAS_H / 2,
+      );
       let luminanceSum = 0;
       for (let p = 0; p < patch.data.length; p += 4) {
-        luminanceSum += 0.299 * patch.data[p] + 0.587 * patch.data[p + 1] + 0.114 * patch.data[p + 2];
+        luminanceSum +=
+          0.299 * patch.data[p] +
+          0.587 * patch.data[p + 1] +
+          0.114 * patch.data[p + 2];
       }
       const avgLuminance = luminanceSum / (patch.data.length / 4);
       let lightingOk = true;
@@ -296,9 +352,10 @@ export default function PicturePage() {
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
       // Guide ring — green when validating and clean, white otherwise
-      const ringColor = currentPhase === "validating"
-        ? `rgba(34,197,94,${0.3 + cleanFrameCountRef.current / CLEAN_FRAMES_NEEDED * 0.5})`
-        : "rgba(255,255,255,0.3)";
+      const ringColor =
+        currentPhase === "validating"
+          ? `rgba(34,197,94,${0.3 + (cleanFrameCountRef.current / CLEAN_FRAMES_NEEDED) * 0.5})`
+          : "rgba(255,255,255,0.3)";
       ctx.beginPath();
       ctx.arc(cx, cy, RING_RADIUS, 0, Math.PI * 2);
       ctx.strokeStyle = ringColor;
@@ -312,7 +369,9 @@ export default function PicturePage() {
           const dy = Math.sin(angle) * RING_RADIUS;
           ctx.beginPath();
           ctx.arc(cx + dx, cy + dy, DOT_R, 0, Math.PI * 2);
-          ctx.fillStyle = sectorsDoneRef.current[i] ? "#22c55e" : "rgba(255,255,255,0.6)";
+          ctx.fillStyle = sectorsDoneRef.current[i]
+            ? "#22c55e"
+            : "rgba(255,255,255,0.6)";
           ctx.fill();
         });
       }
@@ -321,7 +380,9 @@ export default function PicturePage() {
       if (!faces || faces.length === 0) return;
 
       if (faces.length > 1) {
-        showWarning("Multiple faces detected — only one person should be in frame");
+        showWarning(
+          "Multiple faces detected — only one person should be in frame",
+        );
         resetToValidating();
         return;
       }
@@ -349,9 +410,10 @@ export default function PicturePage() {
         // Center target circle
         ctx.beginPath();
         ctx.arc(cx, cy, RING_RADIUS * 0.35, 0, Math.PI * 2);
-        ctx.strokeStyle = dist < RING_RADIUS * 0.35
-          ? "rgba(34,197,94,0.7)"
-          : "rgba(255,255,255,0.4)";
+        ctx.strokeStyle =
+          dist < RING_RADIUS * 0.35
+            ? "rgba(34,197,94,0.7)"
+            : "rgba(255,255,255,0.4)";
         ctx.lineWidth = 1.5;
         ctx.setLineDash([5, 4]);
         ctx.stroke();
@@ -372,7 +434,10 @@ export default function PicturePage() {
 
         if (!lightingOk) return;
         clearWarning();
-        cleanFrameCountRef.current = Math.min(cleanFrameCountRef.current + 1, CLEAN_FRAMES_NEEDED);
+        cleanFrameCountRef.current = Math.min(
+          cleanFrameCountRef.current + 1,
+          CLEAN_FRAMES_NEEDED,
+        );
         setCleanProgress(cleanFrameCountRef.current / CLEAN_FRAMES_NEEDED);
         if (cleanFrameCountRef.current >= CLEAN_FRAMES_NEEDED) {
           setPhaseSync("capture");
@@ -404,7 +469,14 @@ export default function PicturePage() {
 
       clearWarning();
     },
-    [captureFrame, showWarning, clearWarning, resetToValidating, pauseCapture, setPhaseSync]
+    [
+      captureFrame,
+      showWarning,
+      clearWarning,
+      resetToValidating,
+      pauseCapture,
+      setPhaseSync,
+    ],
   );
 
   // ── Start the full flow ───────────────────────────────────────────────────────
@@ -464,7 +536,7 @@ export default function PicturePage() {
           const dx = x - cx;
           const dy = y - cy;
           return Math.sqrt(dx * dx + dy * dy) < RING_RADIUS;
-        })
+        }),
       );
       if (inCircle) showWarning("Move your hands out of frame");
     });
@@ -475,8 +547,10 @@ export default function PicturePage() {
     const sendFrame = async () => {
       if (video.readyState >= 2) {
         const sends: Promise<void>[] = [];
-        if (faceMeshRef.current) sends.push(faceMeshRef.current.send({ image: video }));
-        if (handsRef.current) sends.push(handsRef.current.send({ image: video }));
+        if (faceMeshRef.current)
+          sends.push(faceMeshRef.current.send({ image: video }));
+        if (handsRef.current)
+          sends.push(handsRef.current.send({ image: video }));
         await Promise.all(sends);
       }
       rafRef.current = requestAnimationFrame(sendFrame);
@@ -494,7 +568,10 @@ export default function PicturePage() {
     return (
       <div className={styles.pageWrapper}>
         <img src="/logo.png" className={styles.logo} alt="Logo" />
-        <div className={styles.card} style={{ textAlign: "center", padding: 32 }}>
+        <div
+          className={styles.card}
+          style={{ textAlign: "center", padding: 32 }}
+        >
           <p>Loading…</p>
         </div>
       </div>
@@ -505,18 +582,31 @@ export default function PicturePage() {
     return (
       <div className={styles.pageWrapper}>
         <img src="/logo.png" className={styles.logo} alt="Logo" />
-        <div className={styles.card} style={{ textAlign: "center", padding: 32 }}>
+        <div
+          className={styles.card}
+          style={{ textAlign: "center", padding: 32 }}
+        >
           <p style={{ fontWeight: 700, fontSize: 18, marginBottom: 12 }}>
             {phase === "uploading" ? "Uploading…" : "Loading…"}
           </p>
           <div
             style={{
-              width: 44, height: 44, borderRadius: "50%",
-              border: "4px solid #e5e5e5", borderTopColor: "#8b5cf6",
-              margin: "0 auto", animation: "spin 0.9s linear infinite",
+              width: 44,
+              height: 44,
+              borderRadius: "50%",
+              border: "4px solid #e5e5e5",
+              borderTopColor: "#8b5cf6",
+              margin: "0 auto",
+              animation: "spin 0.9s linear infinite",
             }}
           />
-          <style jsx>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <style jsx>{`
+            @keyframes spin {
+              to {
+                transform: rotate(360deg);
+              }
+            }
+          `}</style>
         </div>
       </div>
     );
@@ -526,19 +616,34 @@ export default function PicturePage() {
     return (
       <div className={styles.pageWrapper}>
         <img src="/logo.png" className={styles.logo} alt="Logo" />
-        <div className={styles.card} style={{ maxWidth: 480, margin: "24px auto" }}>
+        <div
+          className={styles.card}
+          style={{ maxWidth: 480, margin: "24px auto" }}
+        >
           <h1 className={styles.title}>Face Setup</h1>
           <p style={{ color: "#555", marginBottom: 16 }}>
             We'll guide you to slowly move your face in a circle so we can
             capture multiple angles for a robust face embedding.
           </p>
-          <ul style={{ color: "#444", fontSize: 14, marginBottom: 24, paddingLeft: 20, lineHeight: 1.9 }}>
+          <ul
+            style={{
+              color: "#444",
+              fontSize: 14,
+              marginBottom: 24,
+              paddingLeft: 20,
+              lineHeight: 1.9,
+            }}
+          >
             <li>Remove sunglasses or tinted lenses</li>
             <li>Remove hats, hoods, or anything covering your forehead</li>
             <li>Make sure your face is well lit</li>
             <li>Keep only one person in frame</li>
           </ul>
-          {error && <p className={styles.error} style={{ marginBottom: 12 }}>{error}</p>}
+          {error && (
+            <p className={styles.error} style={{ marginBottom: 12 }}>
+              {error}
+            </p>
+          )}
           <button className={styles.button} onClick={startCapture}>
             Start Face Setup
           </button>
@@ -553,7 +658,10 @@ export default function PicturePage() {
   return (
     <div className={styles.pageWrapper}>
       <img src="/logo.png" className={styles.logo} alt="Logo" />
-      <div className={styles.card} style={{ maxWidth: 540, margin: "24px auto", padding: "20px 24px" }}>
+      <div
+        className={styles.card}
+        style={{ maxWidth: 540, margin: "24px auto", padding: "20px 24px" }}
+      >
         <h1 className={styles.title} style={{ marginBottom: 4 }}>
           {isValidating ? "Face Setup" : "Move your face in a circle"}
         </h1>
@@ -566,7 +674,14 @@ export default function PicturePage() {
         </p>
 
         {/* Progress bar */}
-        <div style={{ height: 6, background: "#eee", borderRadius: 4, marginBottom: 12 }}>
+        <div
+          style={{
+            height: 6,
+            background: "#eee",
+            borderRadius: 4,
+            marginBottom: 12,
+          }}
+        >
           <div
             style={{
               height: "100%",
@@ -584,9 +699,13 @@ export default function PicturePage() {
         {warning && (
           <div
             style={{
-              background: "#fef3c7", border: "1px solid #fbbf24",
-              borderRadius: 8, padding: "8px 12px", marginBottom: 12,
-              fontSize: 13, color: "#92400e",
+              background: "#fef3c7",
+              border: "1px solid #fbbf24",
+              borderRadius: 8,
+              padding: "8px 12px",
+              marginBottom: 12,
+              fontSize: 13,
+              color: "#92400e",
             }}
           >
             ⚠ {warning}
@@ -597,9 +716,13 @@ export default function PicturePage() {
         {occlusionError && (
           <div
             style={{
-              background: "#fdecea", border: "1px solid #f5c6cb",
-              borderRadius: 8, padding: "8px 12px", marginBottom: 12,
-              fontSize: 13, color: "#d93025",
+              background: "#fdecea",
+              border: "1px solid #f5c6cb",
+              borderRadius: 8,
+              padding: "8px 12px",
+              marginBottom: 12,
+              fontSize: 13,
+              color: "#d93025",
             }}
           >
             ✕ {occlusionError}
@@ -613,7 +736,12 @@ export default function PicturePage() {
             ref={canvasRef}
             width={CANVAS_W}
             height={CANVAS_H}
-            style={{ borderRadius: 16, maxWidth: "100%", background: "#111", display: "block" }}
+            style={{
+              borderRadius: 16,
+              maxWidth: "100%",
+              background: "#111",
+              display: "block",
+            }}
           />
         </div>
       </div>

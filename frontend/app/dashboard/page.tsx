@@ -202,6 +202,8 @@ export default function Dashboard() {
     router.refresh();
   };
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isEventDropdownOpen, setIsEventDropdownOpen] = useState(false);
+  const eventDropdownRef = useRef<HTMLDivElement>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [avatarSignedUrl, setAvatarSignedUrl] = useState<string | null>(null);
@@ -278,8 +280,16 @@ export default function Dashboard() {
   useEffect(() => {
     if (eventId) {
       localStorage.setItem("lastEventId", String(eventId));
+      if (selectedEvent?.event_name) {
+        localStorage.setItem("lastEventName", selectedEvent.event_name);
+      }
+    } else {
+      const saved = localStorage.getItem("lastEventId");
+      if (saved) {
+        router.replace(`/dashboard?eventId=${saved}`);
+      }
     }
-  }, [eventId]);
+  }, [eventId, selectedEvent]); // eslint-disable-line react-hooks/exhaustive-deps
   const queryRoleParam = searchParams?.get("role");
   const queryRole: EventRole | null = isEventRole(queryRoleParam)
     ? queryRoleParam
@@ -357,6 +367,16 @@ export default function Dashboard() {
       }
     }
     fetchUser();
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (eventDropdownRef.current && !eventDropdownRef.current.contains(e.target as Node)) {
+        setIsEventDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -909,7 +929,7 @@ export default function Dashboard() {
       >
         <Link
           href="/dashboard"
-          className="flex items-center gap-3 mb-12 cursor-pointer hover:opacity-80 transition-opacity"
+          className="flex items-center gap-3 mb-4 cursor-pointer hover:opacity-80 transition-opacity"
         >
           <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
             <img src="/logo.png" alt="VeriFace Logo" className="h-8 w-auto" />
@@ -921,10 +941,27 @@ export default function Dashboard() {
           )}
         </Link>
 
+        {selectedEvent && (
+          isSidebarCollapsed ? (
+            <div className="mb-6 flex justify-center overflow-hidden">
+              <span
+                className="text-xs font-medium text-white/60 truncate text-center w-full">
+                {selectedEvent.event_name}
+              </span>
+            </div>
+          ) : (
+            <div className="mb-6 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
+              <p className="text-xs text-white/40 mb-0.5">Selected Event</p>
+              <p className="text-sm font-medium truncate">{selectedEvent.event_name}</p>
+            </div>
+          )
+        )}
+        {!selectedEvent && isSidebarCollapsed && <div className="mb-8" />}
+
         <nav className="flex-1 space-y-2">
           {[
-            { href: "/dashboard", label: "Home", icon: Home, match: (p: string) => p === "/dashboard" },
-            { href: "/events", label: "Events", icon: Calendar, match: (p: string) => p === "/events" },
+            { href: "/dashboard", label: "Event Dashboard", icon: Home, match: (p: string) => p === "/dashboard" },
+            { href: "/events", label: eventId ? "Change Event" : "Events", icon: Calendar, match: (p: string) => p === "/events" },
             ...(!canUseParticipation
               ? []
               : [{
@@ -953,6 +990,7 @@ export default function Dashboard() {
         {/* Logout + Profile Section */}
         {/* Logout Link */}
         <button
+          type="button"
           onClick={handleLogout}
           className="flex items-center gap-3 w-full px-4 py-2 rounded-lg text-sm font-medium opacity-90 hover:bg-red-500/20 hover:text-red-400 transition"
         >
@@ -1007,6 +1045,35 @@ export default function Dashboard() {
                 }`}
               />
             </Button>
+            {selectedEvent && (
+              <div className="relative" ref={eventDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsEventDropdownOpen((o) => !o)}
+                  className="flex items-center gap-2 text-xl font-semibold text-foreground2 hover:opacity-70 transition"
+                >
+                  {selectedEvent.event_name}
+                  <ChevronDown className={`h-5 w-5 transition-transform ${isEventDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+                {isEventDropdownOpen && (
+                  <div className="absolute top-full left-0 mt-2 w-64 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 overflow-hidden">
+                    {events.map((event) => (
+                      <button
+                        key={event.id}
+                        type="button"
+                        onClick={() => {
+                          router.push(`/dashboard?eventId=${event.id}&role=${event.role}`);
+                          setIsEventDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-accent transition-colors ${event.id === eventId ? "font-semibold text-primary" : "text-foreground"}`}
+                      >
+                        {event.event_name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {userRole && (
@@ -1016,6 +1083,23 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+        {/* No event selected */}
+        {!eventId && (
+          <div className="flex flex-col items-center justify-center h-[60vh] text-center gap-4">
+            <Calendar className="h-12 w-12 text-muted-foreground opacity-40" />
+            <p className="text-lg font-medium text-muted-foreground">
+              No event selected
+            </p>
+            <p className="text-sm text-muted-foreground/70">
+              Please select an event from the{" "}
+              <Link href="/events" className="underline hover:text-foreground transition">
+                Events page
+              </Link>{" "}
+              to see your dashboard.
+            </p>
+          </div>
+        )}
 
         {/* Member View */}
         {userRole === "member" && eventId && (

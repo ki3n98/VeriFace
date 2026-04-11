@@ -23,9 +23,11 @@ export default function SettingsLayout({
   const router = useRouter();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [lastEventId, setLastEventId] = useState<string | null>(null);
+  const [lastEventName, setLastEventName] = useState<string | null>(null);
 
   useEffect(() => {
     setLastEventId(localStorage.getItem("lastEventId"));
+    setLastEventName(localStorage.getItem("lastEventName"));
   }, []);
 
   useEffect(() => {
@@ -59,7 +61,7 @@ export default function SettingsLayout({
       >
         <Link
           href="/dashboard"
-          className="flex items-center gap-3 mb-12 cursor-pointer hover:opacity-80 transition-opacity"
+          className="flex items-center gap-3 mb-4 cursor-pointer hover:opacity-80 transition-opacity"
         >
           <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
             <img src="/logo.png" alt="VeriFace Logo" className="h-8 w-auto" />
@@ -71,11 +73,29 @@ export default function SettingsLayout({
           )}
         </Link>
 
+        {lastEventName ? (
+          isSidebarCollapsed ? (
+            <div className="mb-6 flex justify-center overflow-hidden">
+              <span
+                className="text-xs font-medium text-white/60 truncate text-center w-full">
+                {lastEventName}
+              </span>
+            </div>
+          ) : (
+            <div className="mb-6 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
+              <p className="text-xs text-white/40 mb-0.5">Selected Event</p>
+              <p className="text-sm font-medium truncate">{lastEventName}</p>
+            </div>
+          )
+        ) : (
+          isSidebarCollapsed && <div className="mb-8" />
+        )}
+
         <nav className="flex-1 space-y-2">
           {[
-            { href: lastEventId ? `/dashboard?eventId=${lastEventId}` : "/dashboard", label: "Home", icon: Home, match: (p: string) => p === "/dashboard" },
-            { href: "/events", label: "Events", icon: Calendar, match: (p: string) => p === "/events" },
-            { href: "/participation", label: "Participation", icon: Users, match: (p: string) => p.startsWith("/participation") },
+            { href: lastEventId ? `/dashboard?eventId=${lastEventId}` : "/dashboard", label: "Event Dashboard", icon: Home, match: (p: string) => p === "/dashboard" },
+            { href: "/events", label: lastEventId ? "Change Event" : "Events", icon: Calendar, match: (p: string) => p === "/events" },
+            ...(lastEventId ? [{ href: `/participation?eventId=${lastEventId}`, label: "Participation", icon: Users, match: (p: string) => p.startsWith("/participation") }] : []),
             { href: "/settings", label: "Settings", icon: Cog, match: (p: string) => p.startsWith("/settings") },
           ].map(({ href, label, icon: Icon, match }) => (
             <Link
@@ -96,6 +116,7 @@ export default function SettingsLayout({
         {/* Logout */}
         <div className="pt-4 border-t border-[var(--sidebar-border)]/30">
           <button
+            type="button"
             onClick={handleLogout}
             className="flex items-center gap-3 w-full px-4 py-2 rounded-lg text-sm font-medium opacity-90 hover:bg-red-500/20 hover:text-red-400 transition"
           >
