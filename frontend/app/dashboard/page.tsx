@@ -165,7 +165,7 @@ const AUDIT_FILTER_BTN: Record<
 const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
+      <div className="bg-card text-card-foreground border border-border rounded-lg shadow-lg p-3">
         <p className="font-medium mb-2">{label}</p>
         {payload.map((entry, index: number) => (
           <div key={index} className="flex items-center gap-2 text-sm">
@@ -1329,7 +1329,7 @@ export default function Dashboard() {
                           />
                           <XAxis dataKey="label" />
                           <YAxis />
-                          <Tooltip content={<CustomTooltip />} />
+                          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.5 }} />
                           <Legend />
                           <Bar
                             dataKey="present"
@@ -1463,7 +1463,7 @@ export default function Dashboard() {
                                   />
                                 ))}
                             </Pie>
-                            <Tooltip content={<CustomTooltip />} />
+                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.5 }} />
                           </PieChart>
                         </ResponsiveContainer>
                         <div className="mt-4 space-y-2">
