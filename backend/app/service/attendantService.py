@@ -1,8 +1,8 @@
 from app.db.repository.attendance import AttendanceRepository
 from app.db.models.attendance import Attendance
+from app.db.models.event import Event
 from app.db.models.session import Session as SessionModel
 from app.db.models.user import User
-from app.db.models.event_user import EventUser
 from app.util.datetime_json import utc_iso_z
 from app.util.embeddings import cosine_similarity
 
@@ -16,6 +16,18 @@ class AttendanceService:
     def __init__(self, session: Session):
         self.__repo = AttendanceRepository(session=session)
         self.session = session
+
+    def __get_session_creator_id(self, session_id: int) -> int | None:
+        session_obj = self.session.get(SessionModel, session_id)
+        if session_obj is None:
+            return None
+
+        return (
+            self.session
+            .query(Event.user_id)
+            .filter(Event.id == session_obj.event_id)
+            .scalar()
+        )
 
     def add_users_for_session(self, session_id: int) -> list[Attendance]:
         return self.__repo.add_users(session_id)
@@ -118,12 +130,16 @@ class AttendanceService:
             )
 
         query_emb = np.asarray(face_embedding, dtype=float)
+        creator_id = self.__get_session_creator_id(session_id)
 
         best_user = None
         best_sim = float('-inf')
 
         # 2) For each attendance row, get the user and compare embeddings
         for att in attendances:
+            if creator_id is not None and att.user_id == creator_id:
+                continue
+
             user = self.session.get(User, att.user_id)
             if not user or not user.embedding:
                 continue
@@ -158,13 +174,28 @@ class AttendanceService:
             .first()
         )
 
-        if attendance.status == "present":
+        if attendance is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Matched user is not enrolled in this session.",
+            )
+
+        attendance_status = (
+            attendance.status.value
+            if hasattr(attendance.status, "value")
+            else str(attendance.status)
+        )
+
+        if attendance_status in {"present", "late"}:
             return {
                 "user_id": best_user.id,
                 "first_name": getattr(best_user, "first_name", None),
                 "last_name": getattr(best_user, "last_name", None),
                 "already_checked_in": True,
-                "status": "present",
+                "attendance_updated": False,
+                "similarity": best_sim,
+                "status": attendance_status,
+                "check_in_time": utc_iso_z(attendance.check_in_time),
             }
 
         session_obj = self.session.get(SessionModel, session_id)
@@ -176,12 +207,20 @@ class AttendanceService:
             session_start_time=session_start_time,
         )
 
+        updated_status = (
+            attendance.status.value
+            if hasattr(attendance.status, "value")
+            else str(attendance.status)
+        )
+
         return {
             "user_id": best_user.id,
             "first_name": getattr(best_user, "first_name", None),
             "last_name": getattr(best_user, "last_name", None),
             "similarity": best_sim,
             "attendance_id": attendance.id,
-            "status": attendance.status,
+            "already_checked_in": False,
+            "attendance_updated": True,
+            "status": updated_status,
             "check_in_time": utc_iso_z(attendance.check_in_time),
         }

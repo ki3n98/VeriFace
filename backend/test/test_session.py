@@ -9,7 +9,7 @@ Tests:
 import pytest
 from fastapi.testclient import TestClient
 from pathlib import Path
-from test_utils import assert_error_response
+from test_utils import assert_error_response, create_dummy_image
 
 
 # ============================================================================
@@ -50,12 +50,21 @@ class TestCreateSession:
         self,
         client: TestClient,
         test_user,
+        second_test_user,
         test_event_with_relationship,
         auth_headers,
         test_db
     ):
-        """Verify session creation auto-creates attendance records."""
+        """Verify session creation seeds member attendance but skips the creator."""
         from app.db.models.attendance import Attendance
+        from app.db.models.event_user import EventUser
+
+        relationship = EventUser(
+            user_id=second_test_user.id,
+            event_id=test_event_with_relationship.id,
+        )
+        test_db.add(relationship)
+        test_db.commit()
         
         payload = {
             "event_id": test_event_with_relationship.id
@@ -76,9 +85,9 @@ class TestCreateSession:
         ).all()
         
         assert len(attendances) > 0
-        # Should have attendance for test_user
         user_ids = [att.user_id for att in attendances]
-        assert test_user.id in user_ids
+        assert second_test_user.id in user_ids
+        assert test_user.id not in user_ids
     
     def test_create_session_no_permission(
         self,
@@ -207,9 +216,10 @@ class TestCheckin:
         
         if response.status_code == 200:
             data = response.json()
-            assert "user_id" in data
-            assert "similarity" in data
-            assert "status" in data
+            first = data["result"]["0"]["data"]
+            assert "user_id" in first
+            assert "similarity" in first
+            assert "status" in first
     
     def test_checkin_updates_attendance_status(
         self,
@@ -248,6 +258,43 @@ class TestCheckin:
             
             assert updated_attendance.status.value == "present"
             assert updated_attendance.check_in_time is not None
+
+    def test_checkin_stats_do_not_count_already_checked_in_as_update(
+        self,
+        client: TestClient,
+        test_session,
+        test_attendance,
+        test_db,
+        monkeypatch,
+    ):
+        """Repeat matches should be reported separately from fresh attendance updates."""
+        from app.db.models.attendance import AttendanceStatus
+
+        test_attendance.status = AttendanceStatus.PRESENT
+        test_db.commit()
+
+        async def fake_upload_img_to_embedding(upload_image, multiple=True):
+            return [[0.1] * 512]
+
+        monkeypatch.setattr(
+            "app.routers.protected.session.upload_img_to_embedding",
+            fake_upload_img_to_embedding,
+        )
+
+        img = create_dummy_image()
+        files = {"upload_image": ("test.jpg", img, "image/jpeg")}
+        response = client.post(
+            f"/protected/session/checkin?session_id={test_session.id}",
+            files=files,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["stats"]["checked_in"] == 0
+        assert data["stats"]["already_checked_in"] == 1
+        first = data["result"]["0"]["data"]
+        assert first["already_checked_in"] is True
+        assert first["attendance_updated"] is False
     
     def test_checkin_no_session_found(
         self,
@@ -268,7 +315,66 @@ class TestCheckin:
         assert response.status_code == 404
         data = response.json()
         assert_error_response(data, expected_detail="no attendance")
-    
+
+    def test_checkin_ignores_creator_attendance_rows(
+        self,
+        test_db,
+        test_user,
+        second_test_user,
+        test_event,
+        test_session,
+    ):
+        """Legacy creator attendance rows should not absorb member check-ins."""
+        from fastapi import HTTPException
+        from app.db.models.attendance import Attendance, AttendanceStatus
+        from app.db.models.event_user import EventUser
+        from app.service.attendantService import AttendanceService
+
+        owner_embedding = [1.0] + ([0.0] * 511)
+        member_embedding = [0.0, 1.0] + ([0.0] * 510)
+
+        test_user.embedding = owner_embedding
+        second_test_user.embedding = member_embedding
+        test_db.add_all(
+            [
+                EventUser(user_id=test_user.id, event_id=test_event.id),
+                EventUser(user_id=second_test_user.id, event_id=test_event.id),
+                Attendance(
+                    session_id=test_session.id,
+                    user_id=test_user.id,
+                    status=AttendanceStatus.ABSENT,
+                ),
+                Attendance(
+                    session_id=test_session.id,
+                    user_id=second_test_user.id,
+                    status=AttendanceStatus.ABSENT,
+                ),
+            ]
+        )
+        test_db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            AttendanceService(session=test_db).check_in_with_embedding(
+                session_id=test_session.id,
+                face_embedding=owner_embedding,
+            )
+
+        assert exc.value.status_code == 422
+
+        test_db.expire_all()
+        owner_attendance = (
+            test_db.query(Attendance)
+            .filter_by(session_id=test_session.id, user_id=test_user.id)
+            .one()
+        )
+        member_attendance = (
+            test_db.query(Attendance)
+            .filter_by(session_id=test_session.id, user_id=second_test_user.id)
+            .one()
+        )
+        assert owner_attendance.status.value == "absent"
+        assert member_attendance.status.value == "absent"
+
     def test_checkin_no_users_with_embeddings(
         self,
         client: TestClient,
@@ -324,9 +430,10 @@ class TestCheckin:
         
         if response.status_code == 200:
             data = response.json()
-            assert "similarity" in data
-            assert isinstance(data["similarity"], (int, float))
-            assert 0.0 <= data["similarity"] <= 1.0
+            first = data["result"]["0"]["data"]
+            assert "similarity" in first
+            assert isinstance(first["similarity"], (int, float))
+            assert 0.0 <= first["similarity"] <= 1.0
     
     def test_checkin_below_threshold(
         self,
@@ -356,9 +463,10 @@ class TestCheckin:
         assert response.status_code == 200
 
         data = response.json()
-        if data.get("already_checked_in"):
-            assert data["status"] == "present"
-            assert "user_id" in data
+        first = data["result"]["0"]["data"]
+        if first.get("already_checked_in"):
+            assert first["status"] in {"present", "late"}
+            assert "user_id" in first
     
     def test_checkin_no_image_provided(
         self,
@@ -445,7 +553,8 @@ class TestCheckin:
         if response.status_code == 200:
             data = response.json()
             # Should return one of the users (best match)
-            assert data["user_id"] in [user1.id, user2.id]
+            first = data["result"]["0"]["data"]
+            assert first["user_id"] in [user1.id, user2.id]
 
 
 # ============================================================================

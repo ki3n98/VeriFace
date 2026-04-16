@@ -365,15 +365,20 @@ async def check_in_with_face(
     results = {}
     total_embs = len(embs)
     checkedin_embs = 0
+    already_checked_in_embs = 0
     last_error = None
     for i in range(total_embs):
         try:
             emb = [float(x) for x in embs[i]]
             result = service.check_in_with_embedding(session_id=session_id, face_embedding=emb)
             results[i] = {"success": True, "data": result}
-            checkedin_embs += 1
-            # Only broadcast to dashboard if this is a new check-in, not a repeat
-            if not result.get("already_checked_in"):
+            if result.get("attendance_updated"):
+                checkedin_embs += 1
+            elif result.get("already_checked_in"):
+                already_checked_in_embs += 1
+
+            # Only broadcast to dashboard if this changed attendance state
+            if result.get("attendance_updated"):
                 ws_data = {**result}
                 if ws_data.get("check_in_time") is not None:
                     ct = ws_data["check_in_time"]
@@ -389,10 +394,18 @@ async def check_in_with_face(
             last_error = error
 
     # If every face failed, surface the actual error instead of returning 200
-    if checkedin_embs == 0 and last_error is not None:
+    if checkedin_embs == 0 and already_checked_in_embs == 0 and last_error is not None:
         raise last_error
 
-    return {"stats":{"num_face":total_embs,"checked_in":checkedin_embs},"result":results}
+    return {
+        "stats": {
+            "num_face": total_embs,
+            "checked_in": checkedin_embs,
+            "already_checked_in": already_checked_in_embs,
+            "matched": checkedin_embs + already_checked_in_embs,
+        },
+        "result": results,
+    }
 
 @sessionRouter.post('/camera')
 def turn_on_camera(session_id:int

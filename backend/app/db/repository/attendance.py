@@ -32,6 +32,13 @@ class AttendanceRepository(BaseRepository):
         if event_id is None:
             raise ValueError(f"Session {session_id} not found")
 
+        creator_id = (
+            self.session
+            .query(Event.user_id)
+            .filter(Event.id == event_id)
+            .scalar()
+        )
+
         #Get all user_ids that belong to that event
         user_ids = (
             self.session
@@ -41,6 +48,8 @@ class AttendanceRepository(BaseRepository):
         )
 
         user_ids = [row[0] for row in user_ids]
+        if creator_id is not None:
+            user_ids = [user_id for user_id in user_ids if user_id != creator_id]
 
         if not user_ids:
             # No users for this event; nothing to do
