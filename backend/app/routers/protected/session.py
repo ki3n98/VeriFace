@@ -365,26 +365,33 @@ async def check_in_with_face(
     results = {}
     total_embs = len(embs)
     checkedin_embs = 0
+    last_error = None
     for i in range(total_embs):
         try:
             emb = [float(x) for x in embs[i]]
             result = service.check_in_with_embedding(session_id=session_id, face_embedding=emb)
             results[i] = {"success": True, "data": result}
             checkedin_embs += 1
-            # Broadcast to dashboard clients watching this session
-            # Convert datetime to string since send_json uses json.dumps
-            ws_data = {**result}
-            if ws_data.get("check_in_time") is not None:
-                ct = ws_data["check_in_time"]
-                ws_data["check_in_time"] = (
-                    utc_iso_z(ct) if isinstance(ct, datetime) else str(ct)
-                )
-            await manager.broadcast_to_session(session_id, {
-                "type": "checkin",
-                "data": ws_data
-            })
+            # Only broadcast to dashboard if this is a new check-in, not a repeat
+            if not result.get("already_checked_in"):
+                ws_data = {**result}
+                if ws_data.get("check_in_time") is not None:
+                    ct = ws_data["check_in_time"]
+                    ws_data["check_in_time"] = (
+                        utc_iso_z(ct) if isinstance(ct, datetime) else str(ct)
+                    )
+                await manager.broadcast_to_session(session_id, {
+                    "type": "checkin",
+                    "data": ws_data
+                })
         except Exception as error:
             results[i] = {"success": False, "error": str(error)}
+            last_error = error
+
+    # If every face failed, surface the actual error instead of returning 200
+    if checkedin_embs == 0 and last_error is not None:
+        raise last_error
+
     return {"stats":{"num_face":total_embs,"checked_in":checkedin_embs},"result":results}
 
 @sessionRouter.post('/camera')

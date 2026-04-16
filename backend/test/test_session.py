@@ -203,7 +203,7 @@ class TestCheckin:
         
         # Note: This test depends on actual face recognition
         # May fail if face doesn't match or isn't detected
-        assert response.status_code in [200, 401, 404, 421, 422]
+        assert response.status_code in [200, 401, 404, 422]
         
         if response.status_code == 200:
             data = response.json()
@@ -352,12 +352,13 @@ class TestCheckin:
                 files=files
             )
         
-        # Should either succeed with different user or fail with threshold error
-        assert response.status_code in [200, 421]
+        # Should either succeed (new check-in, already checked in, or different user)
+        assert response.status_code == 200
 
-        if response.status_code == 421:
-            data = response.json()
-            assert_error_response(data, expected_detail="not recognized")
+        data = response.json()
+        if data.get("already_checked_in"):
+            assert data["status"] == "present"
+            assert "user_id" in data
     
     def test_checkin_no_image_provided(
         self,
@@ -508,4 +509,4 @@ class TestSessionFlow:
             )
         
         # Check-in might succeed or fail depending on face match
-        assert checkin_response.status_code in [200, 401, 421, 422]
+        assert checkin_response.status_code in [200, 401, 422]

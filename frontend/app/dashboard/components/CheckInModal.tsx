@@ -13,7 +13,7 @@ interface CheckInModalProps {
 }
 
 type CheckInResult =
-  | { kind: "success"; name: string; status: string }
+  | { kind: "success"; name: string; status: string; alreadyCheckedIn: boolean }
   | { kind: "error"; message: string };
 
 const SCAN_INTERVAL_MS = 2500; // how often to capture a frame
@@ -53,19 +53,27 @@ export function CheckInModal({ isOpen, onClose, sessionId }: CheckInModalProps) 
       const response = await apiClient.checkIn(sessionId, file);
 
       if (!response.error) {
-        const results = response.data ?? [];
-        const first = results[0];
+        const responseData = response.data as {
+          result?: Record<string, { success: boolean; data?: unknown }>;
+        } | null;
+        const first = responseData?.result?.["0"];
         if (first?.success) {
           const data = first.data as {
             first_name?: string;
             last_name?: string;
             status?: string;
+            already_checked_in?: boolean;
           } | null;
           const name =
             data?.first_name && data?.last_name
               ? `${data.first_name} ${data.last_name}`
               : "Unknown";
-          setResult({ kind: "success", name, status: data?.status ?? "present" });
+          setResult({
+            kind: "success",
+            name,
+            status: data?.status ?? "present",
+            alreadyCheckedIn: data?.already_checked_in ?? false,
+          });
           // Pause scanning briefly to show the result
           clearInterval(intervalRef.current!);
           setTimeout(() => {
@@ -183,18 +191,27 @@ export function CheckInModal({ isOpen, onClose, sessionId }: CheckInModalProps) 
           {result && (
             <div
               className={`w-full text-center rounded-lg px-4 py-3 text-sm font-medium ${
-                result.kind === "success"
+                result.kind === "success" && result.alreadyCheckedIn
+                  ? "bg-amber-50 text-amber-700 border border-amber-200"
+                  : result.kind === "success"
                   ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                   : "bg-red-50 text-red-700 border border-red-200"
               }`}
             >
               {result.kind === "success" ? (
-                <>
-                  ✓ Checked in:{" "}
-                  <span className="font-bold">{result.name}</span>
-                  {" — "}
-                  <span className="capitalize">{result.status}</span>
-                </>
+                result.alreadyCheckedIn ? (
+                  <>
+                    Already checked in:{" "}
+                    <span className="font-bold">{result.name}</span>
+                  </>
+                ) : (
+                  <>
+                    ✓ Checked in:{" "}
+                    <span className="font-bold">{result.name}</span>
+                    {" — "}
+                    <span className="capitalize">{result.status}</span>
+                  </>
+                )
               ) : (
                 <>✗ {result.message}</>
               )}

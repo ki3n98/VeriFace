@@ -135,34 +135,37 @@ class AttendanceService:
                 best_sim = sim
                 best_user = user
 
-        # No users had embeddings or similarity too low
+        # No users had embeddings
         if best_user is None:
             raise HTTPException(
                 status_code=420,
                 detail="Could not find the user to checkin, please try again.",
             )
-        
-        else:
-            best_user_id = best_user.id
-            attendance = (
-            self.session
-            .query(Attendance)
-            .filter(Attendance.session_id == session_id,
-                    Attendance.user_id == best_user_id)
-            .first()
-            )
 
-        if attendance.status == "present":
-            raise HTTPException(
-                status_code=421,
-                detail="User already checked in.",
-            )
-
+        # Reject low-similarity matches before anything else
         if best_sim < threshold:
             raise HTTPException(
                 status_code=422,
                 detail="This student is not recognized please try again.",
             )
+
+        best_user_id = best_user.id
+        attendance = (
+            self.session
+            .query(Attendance)
+            .filter(Attendance.session_id == session_id,
+                    Attendance.user_id == best_user_id)
+            .first()
+        )
+
+        if attendance.status == "present":
+            return {
+                "user_id": best_user.id,
+                "first_name": getattr(best_user, "first_name", None),
+                "last_name": getattr(best_user, "last_name", None),
+                "already_checked_in": True,
+                "status": "present",
+            }
 
         session_obj = self.session.get(SessionModel, session_id)
         session_start_time = session_obj.start_time if session_obj else None
@@ -175,7 +178,8 @@ class AttendanceService:
 
         return {
             "user_id": best_user.id,
-            "name": getattr(best_user, "first_name", None),
+            "first_name": getattr(best_user, "first_name", None),
+            "last_name": getattr(best_user, "last_name", None),
             "similarity": best_sim,
             "attendance_id": attendance.id,
             "status": attendance.status,
