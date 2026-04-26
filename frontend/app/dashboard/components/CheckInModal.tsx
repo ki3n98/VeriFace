@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { X, Camera } from "lucide-react";
@@ -16,27 +16,99 @@ type CheckInResult =
   | { kind: "success"; name: string; status: string; alreadyCheckedIn: boolean }
   | { kind: "error"; message: string };
 
-const SCAN_INTERVAL_MS = 2500; // how often to capture a frame
-const RESULT_DISPLAY_MS = 2000; // how long to show a result before resuming
+type LivenessAction = "blink" | "double_blink";
+
+interface FaceLandmark {
+  x: number;
+  y: number;
+  z?: number;
+}
+
+interface FaceMeshResults {
+  multiFaceLandmarks?: FaceLandmark[][];
+}
+
+interface FaceMeshInstance {
+  setOptions: (options: {
+    maxNumFaces: number;
+    refineLandmarks: boolean;
+    minDetectionConfidence: number;
+    minTrackingConfidence: number;
+  }) => void;
+  onResults: (callback: (results: FaceMeshResults) => void) => void;
+  initialize: () => Promise<void>;
+  send: (input: { image: HTMLVideoElement }) => Promise<void>;
+  close?: () => void;
+}
+
+const SCAN_INTERVAL_MS = 2500;
+const RESULT_DISPLAY_MS = 2000;
+const LIVENESS_TIMEOUT_MS = 7000;
+const LIVENESS_FRAME_INTERVAL_MS = 70;
+
+let faceMeshPromise: Promise<FaceMeshInstance> | null = null;
 
 export function CheckInModal({ isOpen, onClose, sessionId }: CheckInModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const isScanningRef = useRef(false); // true while a request is in-flight
+  const isScanningRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [result, setResult] = useState<CheckInResult | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [challengePrompt, setChallengePrompt] = useState<string | null>(null);
+  const [livenessStatus, setLivenessStatus] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
+
+  const resumeScanningAfterResult = useCallback(() => {
+    setTimeout(() => {
+      setResult(null);
+      setChallengePrompt(null);
+      setLivenessStatus(null);
+      isScanningRef.current = false;
+    }, RESULT_DISPLAY_MS);
+  }, []);
 
   const captureAndCheckIn = useCallback(async () => {
     if (isScanningRef.current || !videoRef.current || !canvasRef.current || !sessionId) return;
 
     const video = videoRef.current;
-    if (video.readyState < 2) return; // video not ready yet
+    if (video.readyState < 2) return;
 
     isScanningRef.current = true;
+    setResult(null);
+    setChallengePrompt(null);
+    setLivenessStatus("Preparing live face check...");
+
+    const challengeResponse = await apiClient.startCheckInChallenge(sessionId);
+    if (challengeResponse.error || !challengeResponse.data) {
+      setResult({
+        kind: "error",
+        message: challengeResponse.error || "Could not start live face check.",
+      });
+      resumeScanningAfterResult();
+      return;
+    }
+
+    const challenge = challengeResponse.data;
+    setChallengePrompt(challenge.prompt);
+    setLivenessStatus("Follow the prompt while looking at the camera.");
+
+    const isLive = await runLivenessChallenge(
+      video,
+      challenge.action,
+      setLivenessStatus,
+    );
+
+    if (!isLive) {
+      setResult({
+        kind: "error",
+        message: "Live face check failed. Please try again.",
+      });
+      resumeScanningAfterResult();
+      return;
+    }
 
     const canvas = canvasRef.current;
     canvas.width = video.videoWidth;
@@ -50,7 +122,10 @@ export function CheckInModal({ isOpen, onClose, sessionId }: CheckInModalProps) 
       }
 
       const file = new File([blob], "checkin.jpg", { type: "image/jpeg" });
-      const response = await apiClient.checkIn(sessionId, file);
+      const response = await apiClient.checkIn(sessionId, file, {
+        token: challenge.token,
+        action: challenge.action,
+      });
 
       if (!response.error) {
         const responseData = response.data as {
@@ -74,24 +149,24 @@ export function CheckInModal({ isOpen, onClose, sessionId }: CheckInModalProps) 
             status: data?.status ?? "present",
             alreadyCheckedIn: data?.already_checked_in ?? false,
           });
-          // Pause scanning briefly to show the result
           clearInterval(intervalRef.current!);
           setTimeout(() => {
             setResult(null);
+            setChallengePrompt(null);
+            setLivenessStatus(null);
             isScanningRef.current = false;
-            // Resume scanning
             intervalRef.current = setInterval(captureAndCheckIn, SCAN_INTERVAL_MS);
           }, RESULT_DISPLAY_MS);
           return;
         }
       }
 
-      // No face or no match — fail silently and keep scanning
+      setChallengePrompt(null);
+      setLivenessStatus(null);
       isScanningRef.current = false;
     }, "image/jpeg");
-  }, [sessionId]);
+  }, [resumeScanningAfterResult, sessionId]);
 
-  // Start camera + scanning loop when modal opens
   useEffect(() => {
     if (!isOpen) return;
 
@@ -117,7 +192,6 @@ export function CheckInModal({ isOpen, onClose, sessionId }: CheckInModalProps) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Update the interval callback when sessionId changes
   useEffect(() => {
     if (!isReady) return;
     clearInterval(intervalRef.current!);
@@ -138,6 +212,8 @@ export function CheckInModal({ isOpen, onClose, sessionId }: CheckInModalProps) 
     stopEverything();
     setResult(null);
     setCameraError(null);
+    setChallengePrompt(null);
+    setLivenessStatus(null);
     setIsReady(false);
     onClose();
   }
@@ -174,20 +250,23 @@ export function CheckInModal({ isOpen, onClose, sessionId }: CheckInModalProps) 
                 muted
                 className="w-full h-auto"
               />
-              {/* Scanning indicator overlay */}
               {isReady && !result && (
                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/60 text-white text-xs px-3 py-1.5 rounded-full">
                   <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
-                  Scanning…
+                  {challengePrompt ? `Live check: ${challengePrompt}` : "Scanning..."}
                 </div>
               )}
             </div>
           )}
 
-          {/* Hidden canvas for frame capture */}
           <canvas ref={canvasRef} className="hidden" />
 
-          {/* Result display */}
+          {livenessStatus && !result && (
+            <div className="w-full rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-center text-sm text-primary">
+              {livenessStatus}
+            </div>
+          )}
+
           {result && (
             <div
               className={`w-full text-center rounded-lg px-4 py-3 text-sm font-medium ${
@@ -206,23 +285,153 @@ export function CheckInModal({ isOpen, onClose, sessionId }: CheckInModalProps) 
                   </>
                 ) : (
                   <>
-                    ✓ Checked in:{" "}
-                    <span className="font-bold">{result.name}</span>
-                    {" — "}
+                    Checked in: <span className="font-bold">{result.name}</span>
+                    {" - "}
                     <span className="capitalize">{result.status}</span>
                   </>
                 )
               ) : (
-                <>✗ {result.message}</>
+                <>{result.message}</>
               )}
             </div>
           )}
 
           <p className="text-xs text-muted-foreground text-center">
-            Point the camera at each student's face. Check-in happens automatically.
+            Point the camera at each student&apos;s face and follow the live prompt before check-in.
           </p>
         </CardContent>
       </Card>
     </div>
   );
+}
+
+async function createFaceMesh(): Promise<FaceMeshInstance> {
+  if (faceMeshPromise) {
+    return faceMeshPromise;
+  }
+
+  const faceMeshModule = (await import("@mediapipe/face_mesh")) as {
+    FaceMesh: new (options: {
+      locateFile: (file: string) => string;
+    }) => FaceMeshInstance;
+  };
+  const faceMesh = new faceMeshModule.FaceMesh({
+    locateFile: (file: string) =>
+      `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/${file}`,
+  });
+  faceMesh.setOptions({
+    maxNumFaces: 2,
+    refineLandmarks: true,
+    minDetectionConfidence: 0.7,
+    minTrackingConfidence: 0.7,
+  });
+  faceMeshPromise = faceMesh.initialize().then(() => faceMesh);
+  return faceMeshPromise;
+}
+
+async function runLivenessChallenge(
+  video: HTMLVideoElement,
+  action: LivenessAction,
+  setStatus: Dispatch<SetStateAction<string | null>>,
+): Promise<boolean> {
+  const faceMesh = await createFaceMesh();
+  const latestResultsRef: { current: FaceMeshResults | null } = { current: null };
+  faceMesh.onResults((results) => {
+    latestResultsRef.current = results;
+  });
+  const requiredBlinks = action === "double_blink" ? 2 : 1;
+  let openEar = 0;
+  let closedFrames = 0;
+  let eyeWasClosed = false;
+  let blinks = 0;
+  let faceFrames = 0;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < LIVENESS_TIMEOUT_MS) {
+    await faceMesh.send({ image: video });
+    const faces = latestResultsRef.current?.multiFaceLandmarks ?? [];
+
+    if (faces.length !== 1) {
+      setStatus(faces.length > 1 ? "Only one face should be in frame." : "Looking for one face...");
+      await sleep(LIVENESS_FRAME_INTERVAL_MS);
+      continue;
+    }
+
+    const ear = getEyeAspectRatio(faces[0]);
+    if (ear === null) {
+      setStatus("Keep your eyes visible to the camera.");
+      await sleep(LIVENESS_FRAME_INTERVAL_MS);
+      continue;
+    }
+
+    faceFrames += 1;
+    openEar = Math.max(openEar, ear);
+
+    if (faceFrames < 5) {
+      setStatus("Hold still for a moment...");
+      await sleep(LIVENESS_FRAME_INTERVAL_MS);
+      continue;
+    }
+
+    const closedThreshold = openEar * 0.72;
+    const openThreshold = openEar * 0.88;
+
+    if (ear < closedThreshold) {
+      closedFrames += 1;
+      if (closedFrames >= 1) {
+        eyeWasClosed = true;
+      }
+    } else if (eyeWasClosed && ear > openThreshold) {
+      blinks += 1;
+      eyeWasClosed = false;
+      closedFrames = 0;
+      setStatus(
+        blinks >= requiredBlinks
+          ? "Live face check passed."
+          : `${blinks}/${requiredBlinks} blinks detected.`,
+      );
+    } else if (ear > openThreshold) {
+      closedFrames = 0;
+    }
+
+    if (blinks >= requiredBlinks) {
+      return true;
+    }
+
+    setStatus(requiredBlinks === 1 ? "Blink once now." : `Blink twice now. ${blinks}/2 detected.`);
+    await sleep(LIVENESS_FRAME_INTERVAL_MS);
+  }
+
+  return false;
+}
+
+function getEyeAspectRatio(landmarks: FaceLandmark[]): number | null {
+  const left = getSingleEyeAspectRatio(landmarks, 33, 133, 159, 145);
+  const right = getSingleEyeAspectRatio(landmarks, 362, 263, 386, 374);
+  if (left === null || right === null) return null;
+  return (left + right) / 2;
+}
+
+function getSingleEyeAspectRatio(
+  landmarks: FaceLandmark[],
+  outer: number,
+  inner: number,
+  top: number,
+  bottom: number,
+): number | null {
+  const points = [landmarks[outer], landmarks[inner], landmarks[top], landmarks[bottom]];
+  if (points.some((point) => !point)) return null;
+
+  const horizontal = distance(landmarks[outer], landmarks[inner]);
+  const vertical = distance(landmarks[top], landmarks[bottom]);
+  if (horizontal === 0) return null;
+  return vertical / horizontal;
+}
+
+function distance(a: FaceLandmark, b: FaceLandmark): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -531,9 +531,25 @@ class ApiClient {
     return this.request<void>("/protected/embedding", { method: "DELETE" });
   }
 
-  async checkIn(sessionId: number, imageFile: File) {
+  async startCheckInChallenge(sessionId: number) {
+    return this.post<{
+      success: boolean;
+      token: string;
+      action: "blink";
+      prompt: string;
+      expires_in: number;
+    }>("/protected/session/livenessChallenge", { session_id: sessionId });
+  }
+
+  async checkIn(
+    sessionId: number,
+    imageFile: File,
+    liveness: { token: string; action: "blink" }
+  ) {
     const formData = new FormData();
     formData.append("upload_image", imageFile);
+    formData.append("liveness_token", liveness.token);
+    formData.append("liveness_action", liveness.action);
     return this.post<Array<{ success: boolean; data?: unknown; error?: string }>>(
       `/protected/session/checkin?session_id=${sessionId}`,
       formData

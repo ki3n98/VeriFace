@@ -16,9 +16,10 @@ from app.db.models.session import Session as SessionModel
 from app.db.models.user import User
 from app.service.eventAuditService import try_log_event_action
 from sqlalchemy.orm import Session
-from fastapi import APIRouter, Depends, HTTPException, Response, status, UploadFile, File, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Form, HTTPException, Response, status, UploadFile, File, WebSocket, WebSocketDisconnect
 from app.util.embeddings import upload_img_to_embedding
 from app.util.datetime_json import utc_iso_z
+from app.util.liveness import liveness_store
 from app.util.pdf_report import render_attendance_report_pdf
 from app.util.ws_manager import manager
 
@@ -399,9 +400,12 @@ async def update_attendance_status(
 @sessionRouter.post("/checkin")
 async def check_in_with_face(
     session_id: int,
+    liveness_token: str = Form(...),
+    liveness_action: str = Form(...),
     upload_image: UploadFile = File(...),
     session: Session = Depends(get_db),
 ):
+    liveness_store.verify(liveness_token, session_id, liveness_action)
     try:
         # Convert image -> face embedding (ensures 1 face, size, etc.)
         
@@ -454,6 +458,26 @@ async def check_in_with_face(
             "matched": checkedin_embs + already_checked_in_embs,
         },
         "result": results,
+    }
+
+@sessionRouter.post("/livenessChallenge")
+async def create_liveness_challenge(
+    body: SessionIdRequest,
+    session: Session = Depends(get_db),
+) -> dict:
+    session_obj = (
+        session.query(SessionModel)
+        .filter(SessionModel.id == body.session_id)
+        .one_or_none()
+    )
+    if session_obj is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session with id={body.session_id} not found.",
+        )
+    return {
+        "success": True,
+        **liveness_store.create(session_id=body.session_id),
     }
 
 @sessionRouter.post('/camera')
