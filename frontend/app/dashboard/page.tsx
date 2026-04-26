@@ -68,6 +68,7 @@ import { CreateSessionModal } from "@/app/dashboard/components/CreateSessionModa
 import { EditSessionStartTimeModal } from "@/app/dashboard/components/EditSessionStartTimeModal";
 import { DefaultStartTimeModal } from "@/app/dashboard/components/DefaultStartTimeModal";
 import { CheckInModal } from "@/app/dashboard/components/CheckInModal";
+import { SessionNotesPanel } from "@/app/dashboard/components/SessionNotesPanel";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { MemberDashboard } from "@/app/dashboard/components/MemberDashboard";
 import { StatusDropdown } from "@/app/dashboard/components/StatusDropdown";
@@ -227,7 +228,7 @@ export default function Dashboard() {
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [sessions, setSessions] = useState<
-    Array<{ id: number; event_id: number; sequence_number: number; start_time?: string | null }>
+    Array<{ id: number; event_id: number; sequence_number: number; start_time?: string | null; notes?: string | null }>
   >([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [activeTab, setActiveTab] = useState<
@@ -1720,6 +1721,31 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
+
+            {/* Session Notes */}
+            {selectedSessionId && (() => {
+              const currentSession = sessions.find(
+                (s) => s.id === selectedSessionId,
+              );
+              if (!currentSession) return null;
+              return (
+                <SessionNotesPanel
+                  key={selectedSessionId}
+                  sessionId={selectedSessionId}
+                  initialNotes={currentSession.notes ?? null}
+                  canEdit={canOperateSessions}
+                  onSaved={(newNotes) => {
+                    setSessions((prev) =>
+                      prev.map((s) =>
+                        s.id === selectedSessionId
+                          ? { ...s, notes: newNotes }
+                          : s,
+                      ),
+                    );
+                  }}
+                />
+              );
+            })()}
 
             {/* Attendance Summary */}
             {attendanceSummary && (

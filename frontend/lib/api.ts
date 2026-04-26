@@ -352,7 +352,7 @@ class ApiClient {
     if (startTime) body.start_time = startTime;
     return this.post<{
       success: boolean;
-      session: { id: number; event_id: number; sequence_number: number; start_time?: string };
+      session: { id: number; event_id: number; sequence_number: number; start_time?: string; notes?: string | null };
     }>("/protected/session/createSession", body);
   }
 
@@ -364,6 +364,7 @@ class ApiClient {
         event_id: number;
         sequence_number: number;
         start_time?: string | null;
+        notes?: string | null;
       }>;
     }>("/protected/session/getSessions", { event_id: eventId });
   }
@@ -371,10 +372,20 @@ class ApiClient {
   async updateSessionStartTime(sessionId: number, startTime: string | null) {
     return this.post<{
       success: boolean;
-      session: { id: number; event_id: number; sequence_number: number; start_time?: string | null };
+      session: { id: number; event_id: number; sequence_number: number; start_time?: string | null; notes?: string | null };
     }>("/protected/session/updateSessionStartTime", {
       session_id: sessionId,
       start_time: startTime || null,
+    });
+  }
+
+  async updateSessionNotes(sessionId: number, notes: string) {
+    return this.post<{
+      success: boolean;
+      session: { id: number; event_id: number; sequence_number: number; start_time?: string | null; notes?: string | null };
+    }>("/protected/session/updateNotes", {
+      session_id: sessionId,
+      notes,
     });
   }
 

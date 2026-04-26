@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, DateTime, String, ForeignKey
+from sqlalchemy import Column, Integer, DateTime, String, Text, ForeignKey
 from app.core.database import Base
 from sqlalchemy import UniqueConstraint
 from pydantic import ConfigDict
@@ -11,6 +11,7 @@ class Session(Base):
     start_time = Column(DateTime, nullable=True)
     end_time = Column(DateTime, nullable=True)
     location = Column(String(250), nullable=True)
+    notes = Column(Text, nullable=True)
 
     model_config = ConfigDict(from_attributes=True)
 

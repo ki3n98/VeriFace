@@ -37,6 +37,21 @@ class SessionRepository(BaseRepository):
 
         return (max_seq if max_seq else 0) + 1
     
+    def update_notes(self, session_id: int, notes: str) -> SessionEvent:
+        session_obj = (
+            self.session.query(SessionEvent)
+            .filter(SessionEvent.id == session_id)
+            .one_or_none()
+        )
+
+        if session_obj is None:
+            raise NoResultFound(f"Session with id {session_id} not found")
+
+        session_obj.notes = notes if notes else None
+        self.session.commit()
+        self.session.refresh(session_obj)
+        return session_obj
+
     #did not test
     def delete_session(self, session_id: int) -> None:
         session_obj = (

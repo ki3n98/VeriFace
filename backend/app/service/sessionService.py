@@ -52,6 +52,15 @@ class SessionService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Session with id={session_id} not found.",
             )
+
+    def update_notes(self, session_id: int, notes: str) -> SessionEvent:
+        try:
+            return self.__session_repository.update_notes(session_id, notes)
+        except NoResultFound:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Session with id={session_id} not found.",
+            )
         
 
         

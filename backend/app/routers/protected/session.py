@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from app.db.schema.user import UserOutput
-from app.db.schema.session import SessionInCreate, SessionOutput
+from app.db.schema.session import SessionInCreate, SessionOutput, SessionNotesUpdate
 from app.db.schema.attendance import AttendanceWithUser, UpdateAttendanceStatusRequest
 from app.service.sessionService import SessionService
 from app.service.attendantService import AttendanceService
@@ -129,6 +129,64 @@ async def update_session_start_time(
         return {
             "success": True,
             "session": SessionOutput.model_validate(session_obj, from_attributes=True),
+        }
+    except HTTPException:
+        raise
+    except Exception as error:
+        print(error)
+        raise
+
+
+@sessionRouter.post("/updateNotes")
+async def update_session_notes(
+    body: SessionNotesUpdate,
+    user: UserOutput = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Update a session's notes. Visible to all event participants; editable by moderator+."""
+    try:
+        session_obj = (
+            db.query(SessionModel)
+            .filter(SessionModel.id == body.session_id)
+            .one_or_none()
+        )
+        if session_obj is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Session with id={body.session_id} not found.",
+            )
+        if not check_permission(
+            user_id=user.id,
+            event_id=session_obj.event_id,
+            session=db,
+            required_role="moderator",
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail="Current user does not have permission to edit session notes.",
+            )
+
+        updated = SessionService(session=db).update_notes(
+            session_id=body.session_id, notes=body.notes
+        )
+
+        try_log_event_action(
+            db,
+            event_id=updated.event_id,
+            actor_user_id=user.id,
+            action="session_notes_updated",
+            category="update",
+            message=f"Updated notes for session {updated.sequence_number}",
+            details={
+                "session_id": updated.id,
+                "sequence_number": updated.sequence_number,
+                "has_notes": bool(updated.notes),
+            },
+        )
+
+        return {
+            "success": True,
+            "session": SessionOutput.model_validate(updated, from_attributes=True),
         }
     except HTTPException:
         raise

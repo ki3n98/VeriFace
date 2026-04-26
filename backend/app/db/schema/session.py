@@ -11,6 +11,7 @@ class SessionInCreate(BaseModel):
     start_time: Union[datetime, None] = None
     end_time : Union[datetime, None] = None
     location : Union[str, None] = None
+    notes: Union[str, None] = None
 
 
 class SessionOutput(BaseModel):
@@ -21,8 +22,14 @@ class SessionOutput(BaseModel):
     sequence_number: int
     start_time: Union[datetime, None] = None
     end_time: Union[datetime, None] = None
+    notes: Union[str, None] = None
 
     @field_serializer("start_time", "end_time")
     def _serialize_session_times(self, v: datetime | None) -> str | None:
         return session_instant_to_utc_iso_z(v)
+
+
+class SessionNotesUpdate(BaseModel):
+    session_id: int
+    notes: str
 
