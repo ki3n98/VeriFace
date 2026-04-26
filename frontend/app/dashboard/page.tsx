@@ -69,6 +69,9 @@ import { EditSessionStartTimeModal } from "@/app/dashboard/components/EditSessio
 import { DefaultStartTimeModal } from "@/app/dashboard/components/DefaultStartTimeModal";
 import { CheckInModal } from "@/app/dashboard/components/CheckInModal";
 import { SessionNotesPanel } from "@/app/dashboard/components/SessionNotesPanel";
+import ExportModal, {
+  type ReportExportOptions,
+} from "@/app/dashboard/components/ExportModal";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { MemberDashboard } from "@/app/dashboard/components/MemberDashboard";
 import { StatusDropdown } from "@/app/dashboard/components/StatusDropdown";
@@ -217,6 +220,7 @@ export default function Dashboard() {
   const [isDeletingMember, setIsDeletingMember] = useState(false);
   const [isSendingInvites, setIsSendingInvites] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [isCreateSessionModalOpen, setIsCreateSessionModalOpen] = useState(false);
   const [isEditStartTimeModalOpen, setIsEditStartTimeModalOpen] = useState(false);
@@ -834,87 +838,37 @@ export default function Dashboard() {
     return `STU-2024-${String(id).padStart(3, "0")}`;
   };
 
-  const handleExportReport = async () => {
+  const handleExportReport = () => {
+    setIsExportModalOpen(true);
+  };
+
+  const handleReportExport = async (options: ReportExportOptions) => {
     if (!eventId || members.length === 0) return;
     setIsExporting(true);
     try {
-      const sessionsRes = await apiClient.getSessions(eventId);
-      const sessionsList = sessionsRes.data?.sessions ?? [];
-      const sortedSessions = [...sessionsList].sort(
-        (a, b) => a.sequence_number - b.sequence_number
-      );
-
-      const studentMap = new Map<
-        number,
-        {
-          name: string;
-          studentId: string;
-          email: string;
-          sessions: Record<number, string>;
-        }
-      >();
-
-      for (const m of members) {
-        studentMap.set(m.id, {
-          name: `${m.first_name} ${m.last_name}`,
-          studentId: formatStudentId(m.id),
-          email: m.email,
-          sessions: {},
-        });
-      }
-
-      for (const session of sortedSessions) {
-        const attRes = await apiClient.getSessionAttendance(session.id);
-        const records = attRes.data?.attendance ?? [];
-        for (const r of records) {
-          const entry = studentMap.get(r.user_id);
-          if (entry) {
-            entry.sessions[session.id] = r.status;
-          }
-        }
-      }
-
-      const escapeCsv = (s: string) => {
-        if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-          return `"${s.replace(/"/g, '""')}"`;
-        }
-        return s;
-      };
-
-      const sessionHeaders = sortedSessions.map(
-        (s) => `Session ${s.sequence_number}`
-      );
-      const headerRow = [
-        "Student Name",
-        "Student ID",
-        "Email",
-        ...sessionHeaders,
-      ].map(escapeCsv).join(",");
-
-      const dataRows = Array.from(studentMap.values()).map((entry) => {
-        const sessionValues = sortedSessions.map(
-          (s) => entry.sessions[s.id] ?? "—"
-        );
-        return [
-          entry.name,
-          entry.studentId,
-          entry.email,
-          ...sessionValues,
-        ]
-          .map(escapeCsv)
-          .join(",");
+      const response = await apiClient.exportAttendanceReport({
+        event_id: eventId,
+        ...options,
       });
 
-      const csv = [headerRow, ...dataRows].join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `attendance-report-${eventId}-${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
+      if (response.error || !response.data) {
+        alert(response.error || "Failed to export report.");
+        return;
+      }
+
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      const extension = options.format === "pdf" ? "pdf" : "csv";
+      link.href = url;
+      link.download =
+        response.filename ||
+        `attendance-report-${eventId}-${new Date().toISOString().slice(0, 10)}.${extension}`;
+      link.click();
       URL.revokeObjectURL(url);
+      setIsExportModalOpen(false);
     } catch (error) {
       console.error("Export failed:", error);
+      alert("Failed to export report. Please try again.");
     } finally {
       setIsExporting(false);
     }
@@ -2084,6 +2038,14 @@ export default function Dashboard() {
           isOpen={isCheckInModalOpen}
           onClose={() => setIsCheckInModalOpen(false)}
           sessionId={selectedSessionId}
+        />
+      )}
+
+      {isExportModalOpen && (
+        <ExportModal
+          onClose={() => setIsExportModalOpen(false)}
+          onExport={handleReportExport}
+          isExporting={isExporting}
         />
       )}
 

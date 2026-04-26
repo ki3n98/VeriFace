@@ -1,74 +1,235 @@
-'use client';
+"use client";
+
+import { useState, type ReactNode } from "react";
+import { Download, FileText, X } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import type { AttendanceReportExportRequest } from "@/lib/api";
+
+export type ReportExportOptions = Omit<AttendanceReportExportRequest, "event_id">;
 
 interface ExportModalProps {
   onClose: () => void;
-  onExport: (format: string) => void;
+  onExport: (options: ReportExportOptions) => void;
+  isExporting?: boolean;
 }
 
-export default function ExportModal({ onClose, onExport }: ExportModalProps) {
+const STATUS_OPTIONS: Array<{
+  value: "present" | "late" | "absent";
+  label: string;
+  className: string;
+}> = [
+  { value: "present", label: "Present", className: "bg-emerald-500" },
+  { value: "late", label: "Late", className: "bg-amber-500" },
+  { value: "absent", label: "Absent", className: "bg-red-500" },
+];
+
+const AGGREGATION_OPTIONS: Array<{
+  value: "overall" | "sessions" | "members" | "matrix";
+  label: string;
+}> = [
+  { value: "overall", label: "Overall totals" },
+  { value: "sessions", label: "Session breakdown" },
+  { value: "members", label: "Member summary" },
+  { value: "matrix", label: "Attendance matrix" },
+];
+
+export default function ExportModal({
+  onClose,
+  onExport,
+  isExporting = false,
+}: ExportModalProps) {
+  const [format, setFormat] = useState<"pdf" | "csv">("pdf");
+  const [sessionScope, setSessionScope] = useState<"all" | "latest">("all");
+  const [statuses, setStatuses] = useState<Array<"present" | "late" | "absent">>([
+    "present",
+    "late",
+    "absent",
+  ]);
+  const [aggregations, setAggregations] = useState<
+    Array<"overall" | "sessions" | "members" | "matrix">
+  >(["overall", "sessions", "members", "matrix"]);
+  const [includeAllMembers, setIncludeAllMembers] = useState(true);
+
+  const submit = (override?: Partial<ReportExportOptions>) => {
+    onExport({
+      format,
+      session_scope: sessionScope,
+      statuses,
+      aggregations,
+      include_all_members: includeAllMembers,
+      ...override,
+    });
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Export Report</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="space-y-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={(event) => {
+        if (event.target === event.currentTarget && !isExporting) {
+          onClose();
+        }
+      }}
+    >
+      <div className="w-full max-w-lg rounded-lg border border-border bg-card text-card-foreground shadow-xl">
+        <div className="flex items-start justify-between border-b border-border px-6 py-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Export Format
-            </label>
-            <div className="space-y-2">
-              <button
-                onClick={() => onExport('csv')}
-                className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition text-left"
-              >
-                📄 CSV (Comma Separated Values)
-              </button>
-              <button
-                onClick={() => onExport('xlsx')}
-                className="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition text-left"
-              >
-                📊 Excel (XLSX)
-              </button>
-              <button
-                onClick={() => onExport('pdf')}
-                className="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition text-left"
-              >
-                📑 PDF
-              </button>
-            </div>
+            <h2 className="text-xl font-semibold">Export Report</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Choose the report query and export format.
+            </p>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Export Options
-            </label>
-            <div className="space-y-2">
-              <label className="flex items-center">
-                <input type="radio" name="scope" value="current" defaultChecked className="mr-2" />
-                <span className="text-sm text-gray-700">Current filters only</span>
-              </label>
-              <label className="flex items-center">
-                <input type="radio" name="scope" value="all" className="mr-2" />
-                <span className="text-sm text-gray-700">All students</span>
-              </label>
-            </div>
-          </div>
+          <Button variant="ghost" size="icon" onClick={onClose} disabled={isExporting}>
+            <X className="h-5 w-5" />
+          </Button>
         </div>
-        <div className="flex justify-end gap-3 mt-6">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
+
+        <div className="space-y-5 px-6 py-5">
+          <section>
+            <div className="mb-2 text-sm font-medium">Format</div>
+            <div className="grid grid-cols-2 gap-2">
+              <ChoiceButton active={format === "pdf"} onClick={() => setFormat("pdf")}>
+                <FileText className="h-4 w-4" />
+                Styled PDF
+              </ChoiceButton>
+              <ChoiceButton active={format === "csv"} onClick={() => setFormat("csv")}>
+                <Download className="h-4 w-4" />
+                CSV
+              </ChoiceButton>
+            </div>
+          </section>
+
+          <section>
+            <div className="mb-2 text-sm font-medium">Session Query</div>
+            <div className="grid grid-cols-2 gap-2">
+              <ChoiceButton
+                active={sessionScope === "all"}
+                onClick={() => setSessionScope("all")}
+              >
+                All sessions
+              </ChoiceButton>
+              <ChoiceButton
+                active={sessionScope === "latest"}
+                onClick={() => setSessionScope("latest")}
+              >
+                Latest session
+              </ChoiceButton>
+            </div>
+          </section>
+
+          <section>
+            <div className="mb-2 text-sm font-medium">Status Filter</div>
+            <div className="grid grid-cols-3 gap-2">
+              {STATUS_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    checked={statuses.includes(option.value)}
+                    onChange={() => setStatuses((current) => toggleRequired(current, option.value))}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span className={`h-2.5 w-2.5 rounded-full ${option.className}`} />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <div className="mb-2 text-sm font-medium">Aggregations</div>
+            <div className="grid grid-cols-2 gap-2">
+              {AGGREGATION_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    checked={aggregations.includes(option.value)}
+                    onChange={() =>
+                      setAggregations((current) => toggleRequired(current, option.value))
+                    }
+                    className="h-4 w-4 accent-primary"
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+          </section>
+
+          <label className="flex cursor-pointer items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+            <span>Include full roster</span>
+            <input
+              type="checkbox"
+              checked={includeAllMembers}
+              onChange={() => setIncludeAllMembers((value) => !value)}
+              className="h-4 w-4 accent-primary"
+            />
+          </label>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              submit({
+                format: "pdf",
+                session_scope: "all",
+                statuses: ["present", "late", "absent"],
+                aggregations: ["overall", "sessions", "members", "matrix"],
+                include_all_members: true,
+              })
+            }
+            disabled={isExporting}
           >
-            Cancel
-          </button>
+            Export All PDF
+          </Button>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={isExporting}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => submit()} disabled={isExporting}>
+              <Download className="mr-2 h-4 w-4" />
+              {isExporting ? "Exporting..." : "Export"}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
   );
+}
+
+function ChoiceButton({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex h-10 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium transition ${
+        active
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border bg-background hover:bg-accent"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function toggleRequired<T extends string>(items: T[], item: T): T[] {
+  if (items.includes(item)) {
+    return items.length === 1 ? items : items.filter((value) => value !== item);
+  }
+  return [...items, item];
 }

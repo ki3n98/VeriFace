@@ -39,6 +39,16 @@ interface CsvUploadFailureResponse {
   }>;
 }
 
+export interface AttendanceReportExportRequest {
+  event_id: number;
+  format: "pdf" | "csv";
+  session_scope: "all" | "latest" | "custom";
+  session_ids?: number[];
+  statuses: Array<"present" | "late" | "absent">;
+  aggregations: Array<"overall" | "sessions" | "members" | "matrix">;
+  include_all_members: boolean;
+}
+
 class ApiClient {
   private baseURL: string;
 
@@ -430,6 +440,49 @@ class ApiClient {
     }>("/protected/session/getEventAttendanceOverview", { event_id: eventId });
   }
 
+  async exportAttendanceReport(body: AttendanceReportExportRequest) {
+    const token = this.getAuthToken();
+    if (!token) {
+      return { error: "Not authenticated" };
+    }
+
+    try {
+      const url = `${this.baseURL}/protected/session/exportReport`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          accept: body.format === "pdf" ? "application/pdf" : "text/csv",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const raw = await response.text();
+        let detail = raw || "Failed to export report";
+        try {
+          const parsed = raw ? JSON.parse(raw) : null;
+          detail = parsed?.detail || parsed?.message || detail;
+        } catch {
+          // Keep the plain text error.
+        }
+        return { error: detail };
+      }
+
+      const blob = await response.blob();
+      const filename =
+        response.headers.get("x-report-filename") ||
+        parseContentDispositionFilename(response.headers.get("content-disposition"));
+
+      return { data: blob, filename: filename || undefined };
+    } catch (error) {
+      console.error(`[API] Report export failed:`, error);
+      return { error: error instanceof Error ? error.message : "Network error" };
+    }
+  }
+
   async getMyAttendance(eventId: number) {
     return this.post<{
       success: boolean;
@@ -613,6 +666,14 @@ class ApiClient {
       }>;
     }>("/protected/breakout/getMyRoom", { event_id: eventId });
   }
+}
+
+function parseContentDispositionFilename(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+  const match = value.match(/filename="?([^";]+)"?/i);
+  return match?.[1] ?? null;
 }
 
 export const apiClient = new ApiClient(API_BASE_URL);
