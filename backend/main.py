@@ -22,6 +22,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition", "X-Report-Filename"],
 )
 
 app.include_router(router=authRouter, tags=["auth"], prefix="/auth")
