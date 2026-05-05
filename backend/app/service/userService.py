@@ -64,6 +64,12 @@ class UserService:
         raise HTTPException(status_code=400, detail="Incorrect email or password. ")
     
 
+    def delete_account(self, user_id: int) -> bool:
+        user = self.__userRepository.get_user_by_id(id=user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found.")
+        return self.__userRepository.delete_user_by_id(id=user_id)
+
     def update_user_by_id(self, user_id: int, updates: Dict[str, Any]) -> UserOutput:
         # Make sure the user exists
         user = self.__userRepository.get_user_by_id(id=user_id)

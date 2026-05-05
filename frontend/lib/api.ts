@@ -628,6 +628,12 @@ class ApiClient {
     );
   }
 
+  async deleteAccount() {
+    return this.request<{ success: boolean; message: string }>("/protected/account/", {
+      method: "DELETE",
+    });
+  }
+
   // Breakout Rooms
   async getBreakoutRooms(eventId: number) {
     return this.post<{

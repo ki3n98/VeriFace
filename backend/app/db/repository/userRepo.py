@@ -1,5 +1,10 @@
 from .base import BaseRepository
 from app.db.models.user import User
+from app.db.models.attendance import Attendance
+from app.db.models.event_user import EventUser
+from app.db.models.user_achievement import UserAchievement
+from app.db.models.user_setting import UserSetting
+from app.db.models.pending_email_change import PendingEmailChange
 from app.db.schema.user import UserInCreate
 from typing import Any, Dict
 
@@ -29,6 +34,19 @@ class UserRepository(BaseRepository):
         user = self.session.get(User, id)
         return user
     
+    def delete_user_by_id(self, id: int) -> bool:
+        user = self.get_user_by_id(id=id)
+        if not user:
+            return False
+        self.session.query(PendingEmailChange).filter_by(user_id=id).delete()
+        self.session.query(UserSetting).filter_by(user_id=id).delete()
+        self.session.query(UserAchievement).filter_by(user_id=id).delete()
+        self.session.query(Attendance).filter_by(user_id=id).delete()
+        self.session.query(EventUser).filter_by(user_id=id).delete()
+        self.session.delete(user)
+        self.session.commit()
+        return True
+
     def update_user_by_id(self, id: int, updates: Dict[str, Any]) -> User:
         user = self.get_user_by_id(id=id) 
         if not user:
